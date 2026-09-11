@@ -1,0 +1,24 @@
+# LaTeX intermediate files
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.los
+*.loabbrv
+*.GeneralNomenclature
+*.synctex.gz
+*.synctex(busy)
+
+# Build folders (compile.sh builds in build-tmp-*)
+build/
+build-tmp-*/
+
+# Compiled PDF in the top folder only; figure PDFs stay tracked
+# (remove this line to keep the compiled PDF in git)
+/*.pdf

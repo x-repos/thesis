@@ -341,7 +341,8 @@ All Rights Reserved
 %% END BEGIN LaTeX Sanity Checks
 
 %% The submittal statement is typed in paragraph form beginning at the top text margin, double-spaced, with the first line indented.
-A thesis submitted to the Faculty and the Board of Trustees of the Colorado School of Mines in partial fulfillment of the requirements for the degree of {\@degree} ({\@discipline}).
+\def\csm@phd@degree{Doctor of Philosophy}%
+A \ifx\@degree\csm@phd@degree dissertation\else thesis\fi{} submitted to the Faculty and the Board of Trustees of the Colorado School of Mines in partial fulfillment of the requirements for the degree of {\@degree} ({\@discipline}).
 
 %% The city, state and signature date are flush with the left text margin.
 \vspace*{3\baselineskip}
@@ -395,7 +396,7 @@ Date \makebox[2in]{\hrulefill}
 Signed: \makebox[2in]{\hrulefill} \linebreak\\
 \makeatletter\@dpthead\makeatother \linebreak
 \makeatletter\@dptheadtitle\makeatother \linebreak
-Department of {\@department}
+{\@department}
 \end{singlespace}
 \end{raggedleft}
 }
