@@ -1,0 +1,49 @@
+\contentsline {section}{\texorpdfupper {Abstract}}{iii}{section*.1}%
+\contentsline {section}{\texorpdfupper {List of Figures}}{vi}{section*.2}%
+\contentsline {section}{\texorpdfupper {List of Tables}}{vii}{section*.3}%
+\contentsline {section}{\texorpdfupper {List of Symbols}}{viii}{section*.4}%
+\contentsline {section}{\texorpdfupper {List of Abbreviations}}{ix}{section*.5}%
+\contentsline {section}{\texorpdfupper {Acknowledgments}}{x}{section*.6}%
+\contentsline {section}{\texorpdfupper {Dedication}}{xi}{section*.7}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 1}Introduction}}{1}{section*.8}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 2}My first chapter with some good content}}{2}{section*.9}%
+\contentsline {subsection}{\numberline {2.1}Level 1}{2}{subsection.2.1}%
+\contentsline {subsubsection}{\numberline {2.1.1}Level 2}{2}{subsubsection.2.1.1}%
+\contentsline {paragraph}{\numberline {2.1.1.1}Level 3}{3}{paragraph.2.1.1.1}%
+\contentsline {subsection}{\numberline {2.2}Here is an example of placing a subsub-section right after the sub-section}{3}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}Here is the title of my subsub-section. I will be referencing the current chapter number}{3}{subsubsection.2.2.1}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 3}This is a long title to check the proper spacing in the Table of Contents and inverse pyramid on the chapter page. Lets see if it works properly. What if I add enough text so that there are like three or four lines here, does it change the way it looks.}}{4}{section*.10}%
+\contentsline {subsection}{\numberline {3.1}A Figure}{4}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Citing and referencing things}{4}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Here is a test of a really long sub-header title that should automatically follow the rules for set for the Temple Guidelines and check if it properly shows up in the table of content. }{5}{subsection.3.3}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 4}Your Journal Paper Title Goes Here }}{6}{section*.13}%
+\contentsline {subsection}{\numberline {4.1}Abstract}{6}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Introduction}{6}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Permissions}{6}{subsection.4.3}%
+\contentsline {subsection}{\numberline {4.4}The next section of the paper}{6}{subsection.4.4}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 5}This is the title of a paper included in a thesis}}{8}{section*.14}%
+\contentsline {subsection}{\numberline {5.1}Abstract}{8}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Introduction}{8}{subsection.5.2}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 6}Examples of Figures}}{9}{section*.15}%
+\contentsline {subsection}{\numberline {6.1}Just a figure}{9}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Sub-figures}{10}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Landscape Figure}{12}{subsection.6.3}%
+\contentsline {subsection}{\numberline {6.4}Here is an example that does not always work}{14}{subsection.6.4}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 7}Examples of Tables}}{19}{section*.23}%
+\contentsline {subsection}{\numberline {7.1}Just a Table}{19}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Big table check}{19}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}Table That Spans Two Pages}{21}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.4}Long portrait table that spans multiple pages}{24}{subsection.7.4}%
+\contentsline {chapter}{\texorpdfupper {\numberline {Chapter 8}Equations: simple and more complicated examples.}}{30}{section*.26}%
+\contentsline {subsection}{\numberline {8.1}Equations}{30}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Long Equation on Two Lines}{30}{subsection.8.2}%
+\contentsline {section}{\texorpdfupper {References}}{32}{section*.27}%
+\contentsline {section}{\texorpdfupper {Selected Bibliography}}{33}{section*.28}%
+\contentsline {appendix}{\texorpdfupper {\numberline {Appendix A}Magical Encoding Awesomeness}}{34}{section*.29}%
+\contentsline {subsection}{\numberline {A.1}Test Appendix Sub-Section}{34}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}This subsection will follow on a new page that is portrait}{38}{subsection.A.2}%
+\contentsline {appendix}{\texorpdfupper {\numberline {Appendix B}Special Coolness.}}{39}{section*.31}%
+\contentsline {appendix}{\texorpdfupper {\numberline {Appendix C}Copyright Permissions}}{40}{section*.32}%
+\contentsline {subsection}{\numberline {C.1}XKCD}{40}{subsection.C.1}%
+\contentsline {subsection}{\numberline {C.2}Phdcomics}{40}{subsection.C.2}%
+\contentsline {subsection}{\numberline {C.3}Journal Article 1}{40}{subsection.C.3}%

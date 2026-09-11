@@ -1,0 +1,8 @@
+\contentsline {table}{\numberline {\relax Table\nobreakspace {\relax 7}.1}{\ignorespaces A table of tabular goodness. A lot of information in this heading to check if we get the proper response at the beginning of the document in the List of Tables}}{19}{table.caption.24}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {\relax 7}.2}{\ignorespaces Table that should take up more than 50\% of the page to stand on its own. Note that it is automatically placed on it's own page when leaving off the placement (eg. [ht] is removed after \textbackslash begin\{table\})}}{20}{table.caption.25}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {\relax 7}.3}{\ignorespaces A multipage table example to show people what to do, in case they have a really long table}}{22}{table.\relax 7.3}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {\relax 7}.4}{\ignorespaces Long Table with countries (A through M), their capitals and the continent according to \cite {cite-techslides_2013}. }}{24}{table.\relax 7.4}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {\relax 7}.5}{\ignorespaces Long Table with countries (N through Z), their capitals and the continent according to \cite {cite-techslides_2013} }}{27}{table.\relax 7.5}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {A}.1}{\ignorespaces This is where we have fun testing encoding}}{34}{table.caption.30}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {A}.2}{\ignorespaces Stratigraphy of the Granite Mountains and Lost Creek areas}}{35}{table.A.2}%
+\contentsline {table}{\numberline {\relax Table\nobreakspace {A}.3}{\ignorespaces Test of a small longtable on the alternate page.}}{37}{table.A.3}%
