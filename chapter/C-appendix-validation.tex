@@ -1,0 +1,314 @@
+% ----------------------------------------------------------------------
+% Appendix D: validation protocol and convergence data.
+% Fragment to be \input into main.tex after \appendix.
+% All numbers from paper/experiments/convergence_results.json and
+% paper/draft.md; the stagger ablation reproduced from the library
+% (lib/absorbing.py) under the same gold-standard protocol.
+% ----------------------------------------------------------------------
+
+\appendix{Validation protocol and convergence data}
+\label{ch3:appD:validation}
+
+This appendix records the classical validation protocol behind every
+reflection number quoted in Section~\ref{ch3:sec:2d} and the raw convergence
+data behind the fitted orders of Section~\ref{ch3:sec:circuit}
+[\ref{ch3:fig:convergence}(a--d)].
+
+\subsection{Gold-standard reflection protocol}
+\label{ch3:appD:protocol}
+
+Measuring the residual reflection of an absorbing layer against the
+absorbing dynamics itself is circular; the gold standard is the
+open-domain solution.  The truncated domain has $N=128$ points (seven
+grid qubits) with the CPML occupying $n_{\mathrm{pml}}$ points at each
+end.  The initial data are a Gaussian velocity bump centred at $j=64$
+with width $3$ cells and $w(0)=0$, normalised to
+$\lVert z_0\rVert_2=1$.  The reference embeds the \emph{same} truncated
+data centred in a $4\times$ hard-wall domain ($N_{\mathrm{ref}}=512$,
+embedding offset $\Delta=(N_{\mathrm{ref}}-N)/2=192$) and evolves it
+with the closed-domain unitary $e^{-iH_{\mathrm{ref}}T}$.  Both
+evolutions are computed by dense matrix exponentials, so the comparison
+contains no time-integration error.  The reported error is the
+pointwise $\ell_2$ difference on the interior window,
+\begin{equation}
+  E(T)^{2} \;=\; \sum_{f\in\{v,\,w\}}\;
+  \sum_{j=n_{\mathrm{pml}}}^{N-n_{\mathrm{pml}}-1}
+  \bigl|\, f_j(T) - f^{\mathrm{ref}}_{j+\Delta}(T) \,\bigr|^{2}.
+  \label{ch3:appD:eq:gold}
+\end{equation}
+Two checks make the protocol sound.  (i)~\emph{Window alignment}: at
+$T=0$ the windowed difference in Eq.~\eqref{ch3:appD:eq:gold} evaluates to
+exactly zero in floating point, pinning the embedding offset and the
+index conventions.  (ii)~\emph{Causal validity}: with $c=1$, $h=1$ the
+pulse meets the layer interface at depth $j=n_{\mathrm{pml}}$ and its
+reflection is back at the centre by
+$T\approx2(64-n_{\mathrm{pml}})\le120$ for $n_{\mathrm{pml}}\ge4$,
+whereas the far walls of the reference domain are first felt inside the
+comparison window only at $T\approx380$.  The plateau times
+$T\in\{100,120,140\}$ therefore capture the complete round-trip
+reflection of the truncated domain while the reference is still
+uncontaminated.  The reported reflection is the maximum of $E(T)$ over
+the three plateau times, and the relative plateau spread
+[$(\max-\min)/\mathrm{mean}$] is the flatness diagnostic.  A reduced
+instance of the same protocol ($N=64$ versus $256$, $T=20$ and $60$,
+asserted $<10^{-3}$) is pinned in the unit-test suite
+(Section~\ref{ch3:appD:tests}).
+
+\subsection{Reflection versus layer width and design reflection}
+\label{ch3:appD:reflection}
+
+\begin{table}
+\caption{Gold-standard true reflection (1D CPML, $N=128$ versus the
+$N=512$ hard-wall reference, $m=2$): plateau error
+$\max_{T\in\{100,120,140\}}E(T)$ and relative plateau spread.  Upper
+block: layer-width sweep at $R_0=10^{-3}$; lower block: design-reflection
+sweep at $n_{\mathrm{pml}}=12$.}
+\label{ch3:appD:tab:reflection}
+\begin{tabular}{llll}
+\toprule
+$n_{\mathrm{pml}}$ & $R_0$ & plateau error & plateau spread \\
+\midrule
+4  & $10^{-3}$ & $6.7\times10^{-4}$ & $1.0\times10^{-9}$ \\
+6  & $10^{-3}$ & $2.6\times10^{-4}$ & $3.3\times10^{-10}$ \\
+8  & $10^{-3}$ & $2.6\times10^{-4}$ & $2.2\times10^{-10}$ \\
+12 & $10^{-3}$ & $3.4\times10^{-4}$ & $1.7\times10^{-9}$ \\
+16 & $10^{-3}$ & $4.2\times10^{-4}$ & $3.3\times10^{-5}$ \\
+\midrule
+12 & $10^{-2}$ & $4.5\times10^{-3}$ & $1.5\times10^{-10}$ \\
+12 & $10^{-3}$ & $3.4\times10^{-4}$ & $1.7\times10^{-9}$ \\
+12 & $10^{-4}$ & $4.3\times10^{-5}$ & $1.9\times10^{-7}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\ref{ch3:appD:tab:reflection} interprets as follows.  The curve is
+the sum of two competing contributions.  At the thinnest layer
+($n_{\mathrm{pml}}=4$) the discrete transition error dominates: the
+measured reflection sits $9.4\times$ above the discrete wall-return
+prediction.  For $n_{\mathrm{pml}}\ge8$ the transition error is
+negligible and the reflection is set by the wall return, which
+\emph{rises toward the design value from below} as the layer widens:
+node sampling of the polynomial profile overestimates
+$\int\sigma\,dx$ by a factor $1+O(1/n_{\mathrm{pml}})$ (exactly
+$\Sigma\sigma h/\!\int\!\sigma = 1.38$, $1.25$, $1.19$, $1.13$,
+$1.09$ for $n_{\mathrm{pml}}=4$--$16$), so the effective round-trip
+reflection is
+$R_{\mathrm{eff}} = R_0^{\,\Sigma\sigma h/\!\int\!\sigma} =
+7.1\times10^{-5}$, $1.7\times10^{-4}$, $2.7\times10^{-4}$,
+$4.2\times10^{-4}$, $5.2\times10^{-4}$ across the sweep; the measured
+values track this prediction within $5$--$20\%$ for
+$n_{\mathrm{pml}}\ge8$.  Thin layers therefore \emph{over}-perform
+the nominal $R_0$ (at the price of larger transition error), and
+widening the layer converges the reflection up to the design value.
+We verified this directly in the {\footnotesize SEISMIC\_CPML}
+reference implementation~\cite{komatitsch2007unsplit} (the 2D
+isotropic elastic code, unmodified kernels, same gold-standard
+protocol, $\alpha=0$, $K=1$): its $P$-wave reflection is likewise
+non-monotonic and rises from $n_{\mathrm{pml}}=12$ to $16$
+($5.8\times10^{-4}\to6.5\times10^{-4}$, against a predicted
+$6.5\times10^{-4}\to7.2\times10^{-4}$), converging up toward the
+design $R_0$ and matching its own discrete-sum prediction within
+${\sim}10\%$ for $n_{\mathrm{pml}}\ge12$.  Two scheme-dependent
+differences: the staggered elastic scheme samples the profile at both
+full and half points, so its quadrature ratio is
+$1+3/(4n_{\mathrm{pml}})$ rather than our
+${\sim}1+3/(2n_{\mathrm{pml}})$; and the minimum sits at
+$n_{\mathrm{pml}}\approx12$ there because $S$-wave transition
+reflection (whose design value $R_0^{c_p/c_s}$ is far smaller) and the
+coarser wavelength resolution keep the transition term dominant
+further out.  The effect is invisible in normal use of that code, where
+the layer width is fixed at ${\sim}10$ cells.
+
+The miscalibration admits a one-line remedy, which we provide as an
+option (\texttt{calibration='discrete'}): rescale the staggered profile
+\emph{pair} by a single common factor so that the characteristic
+damping sum $\Sigma\,(\sigma_v+\sigma_w)h/2$ equals the design
+integral exactly.  The realised reflection is then flat at the design
+value, $0.81$--$1.08\,R_0$ across the whole sweep
+$n_{\mathrm{pml}}=4$--$16$ [red squares in
+\ref{ch3:fig:convergence}(a)], i.e.\ the Collino--Tsogka formula
+becomes exact on the grid.  The common factor is essential: rescaling
+each profile \emph{separately} gives $\sigma_v$ and $\sigma_w$
+different damping functions (the node and midpoint quadratures differ),
+an in-layer impedance mismatch that reflects at
+$O(1/n_{\mathrm{pml}})$---measured at $1.2\times10^{-2}$ to
+$6.9\times10^{-2}$, i.e.\ ten to seventy times \emph{worse} than no
+calibration at all.  This remedy applies verbatim to classical CPML
+codes.  That the level is
+$R_0$-controlled rather than an absolute discretisation floor is
+established by the lower block: at $n_{\mathrm{pml}}=12$ the measured
+reflection tracks the design value over two decades, with ratios
+$E/R_0=0.45$, $0.34$, $0.43$---the Collino--Tsogka formula is
+predictive within a factor ${\sim}2.3$ in this discretisation, and
+lowering $R_0$ lowers the true reflection commensurately, down to
+$4.3\times10^{-5}$ at $R_0=10^{-4}$.  This is the floor behaviour
+reported for classical CPML implementations by Komatitsch and
+Martin~\cite{komatitsch2007unsplit}.  The plateau is flat to
+$\le2\times10^{-9}$ (relative) in six of the eight rows; even the two
+most weakly damped rows ($n_{\mathrm{pml}}=16$ and $R_0=10^{-4}$) vary
+by only $3.3\times10^{-5}$ and $1.9\times10^{-7}$ of their mean across
+$T\in\{100,120,140\}$, i.e.\ the round-trip transient has fully decayed and
+the quoted numbers are converged in $T$.
+
+\subsection{Recovery order in the \texorpdfstring{$p$}{p} register}
+\label{ch3:appD:porder}
+
+\begin{table}
+\caption{Schr\"odingerisation recovery error versus $p$-register size
+$n_p$ for the kinked $e^{-|p|}$ profile and the $C^{1}$ cubic profile of
+Ref.~\protect\cite{jin2024recovery} [1D CPML benchmark, $N=32$,
+$n_{\mathrm{pml}}=8$, $\sigma_{\max}=1$, $T=30$, $p\in[-18,18)$,
+$\Delta p=36/2^{n_p}$].  Errors are
+$\lVert z_{\mathrm{rec}}-e^{AT}z_0\rVert_2$ with
+$\lVert z_0\rVert_2=1$, recovered at the library-default slice
+$p^{*}=3\Delta p$ (valid at any $p^{*}>0$ since $H_1\preceq0$ here).
+The fitted orders are least-squares slopes of $\log_2 E$ versus $n_p$.}
+\label{ch3:appD:tab:profiles}
+\begin{tabular}{llll}
+\toprule
+$n_p$ & $\Delta p$ & $e^{-|p|}$ profile & $C^{1}$ cubic profile \\
+\midrule
+6  & 0.563  & $4.1\times10^{-2}$ & $1.3\times10^{-2}$ \\
+7  & 0.281  & $1.6\times10^{-2}$ & $2.6\times10^{-3}$ \\
+8  & 0.141  & $3.6\times10^{-3}$ & $1.7\times10^{-4}$ \\
+9  & 0.0703 & $1.5\times10^{-3}$ & $1.3\times10^{-5}$ \\
+10 & 0.0352 & $1.1\times10^{-3}$ & $5.9\times10^{-6}$ \\
+11 & 0.0176 & $6.3\times10^{-4}$ & $2.4\times10^{-6}$ \\
+\midrule
+\multicolumn{2}{l}{order in $\Delta p$ (all points)} & 1.23 & 2.64 \\
+\multicolumn{2}{l}{order in $\Delta p$ ($n_p=6$--$9$)} & 1.64 & 3.40 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\ref{ch3:appD:tab:profiles} gives the recovery error of the full
+Schr\"odingerised pipeline (exact per-mode evolution, no Trotter) as a
+function of the $p$-register size, for the two warping profiles of
+Section~\ref{ch3:sec:schro}.  The errors are absolute per unit initial norm;
+by $T=30$ the layer has absorbed all but
+$\lVert e^{AT}z_0\rVert_2=1.4\times10^{-3}$ of the state, so resolving
+the residual field demands the higher-order profile.  Both profiles
+meet or exceed their nominal orders [$O(\Delta p)$ kinked,
+$O(\Delta p^{2})$ cubic, Remark~4.9 of Ref.~\cite{jin2024recovery}]:
+the full-sweep fits give orders $1.23$ and $2.64$, and the pre-floor
+fits ($n_p=6$--$9$) give $1.64$ and $3.40$.  Because the default slice
+$p^{*}=3\Delta p$ moves with refinement, we re-evaluated both series at
+the fixed slice $p^{*}=1$: the fitted orders become $1.64$ and $3.25$,
+so the profile ordering is not a slice artefact.  At $n_p=11$ the cubic
+profile is ${\sim}260\times$ more accurate ($2.4\times10^{-6}$ versus
+$6.3\times10^{-4}$); the flattening of its last two points marks the
+approach to the recovery floor of this configuration.
+
+\subsection{Trotter orders at gate level}
+\label{ch3:appD:trotter}
+
+\begin{table}
+\caption{Gate-level Trotter error versus step count [1D CPML, $N=8$,
+$n_{\mathrm{pml}}=2$, $\sigma_{\max}=1$, $T=4$, $n_p=5$, $p_{\max}=8$;
+transpiled circuits on a statevector simulator; errors
+$\lVert z_{\mathrm{circ}}-z_{\mathrm{ref}}\rVert_2$ with
+$\lVert z_0\rVert_2=1$].  ``vs exact S.''\ uses the exact
+Schr\"odingerised evolution (exact per-mode propagation at the same $p$
+discretisation) as reference, isolating the splitting error; ``vs
+$e^{AT}z_0$'' uses the full matrix-exponential reference and therefore
+contains the $p$-discretisation floor, measured independently as
+$1.29\times10^{-2}$.  Order~2 symmetrises both Trotter levels (Strang
+outer split, palindromic term order inner).}
+\label{ch3:appD:tab:trotter}
+\begin{tabular}{lllll}
+\toprule
+ & \multicolumn{2}{c}{order 1} & \multicolumn{2}{c}{order 2} \\
+steps & vs exact S. & vs $e^{AT}z_0$ & vs exact S. & vs $e^{AT}z_0$ \\
+\midrule
+10 & $1.36\times10^{-1}$ & $1.32\times10^{-1}$ & $3.24\times10^{-2}$ & $3.40\times10^{-2}$ \\
+20 & $6.55\times10^{-2}$ & $6.27\times10^{-2}$ & $8.02\times10^{-3}$ & $1.46\times10^{-2}$ \\
+40 & $3.25\times10^{-2}$ & $3.11\times10^{-2}$ & $2.00\times10^{-3}$ & $1.29\times10^{-2}$ \\
+80 & $1.62\times10^{-2}$ & $1.75\times10^{-2}$ & $4.99\times10^{-4}$ & $1.29\times10^{-2}$ \\
+\midrule
+slope & $-1.02$ & $-0.98$ & $-2.01$ & $-0.44$\textsuperscript{a} \\
+\bottomrule
+\end{tabular}
+\\[2pt]
+{\footnotesize \textsuperscript{a}\,Floor-limited: not a meaningful order, see text.}
+\end{table}
+
+\ref{ch3:appD:tab:trotter} separates the two error sources of the
+circuit pipeline of Section~\ref{ch3:sec:circuit}.  Against the exact
+Schr\"odingerised evolution the splitting error is clean: fitted slope
+$-1.02$ at order~1 and $-2.01$ at order~2 with both Trotter levels
+symmetrised [\ref{ch3:fig:convergence}(d)].  Against the full
+$e^{AT}z_0$ reference the order-2 series saturates at
+$1.29\times10^{-2}$ from $40$ steps onward---exactly the independently
+measured $p$-discretisation floor of this deliberately coarse $n_p=5$
+register---so the nominal slope $-0.44$ in that column is
+floor-limited rather than a defect of the splitting.  The order-1
+series does not saturate within the sweep because its splitting error
+stays above the floor.  Enlarging the $p$ register lowers the floor at
+the rates of \ref{ch3:appD:tab:profiles}.
+
+\subsection{Stagger ablation}
+\label{ch3:appD:stagger}
+
+The damping profiles are sampled at $x_j=(j+s)h$ with the stagger $s$
+matched to where each field lives (Section~\ref{ch3:sec:cpml}): for the
+forward-difference convention, $v$ at integer nodes ($s=0$) and $w$ at
+the half-cells $x_{j-1/2}$ ($s=-1/2$).  Rerunning the gold-standard
+protocol ($n_{\mathrm{pml}}=12$, $R_0=10^{-3}$) with the $\sigma_w$
+stagger ablated gives \ref{ch3:appD:tab:stagger}: misplacing the
+profile by half a cell costs two orders of magnitude in true
+reflection.  The stagger is load-bearing, not cosmetic.
+
+\begin{table}
+\caption{Stagger ablation under the gold-standard protocol
+(Section~\protect\ref{ch3:appD:protocol}; 1D CPML, $n_{\mathrm{pml}}=12$,
+$R_0=10^{-3}$): plateau reflection versus the stagger offset $s$ of the
+$\sigma_w$ sampling, $x_j=(j+s)h$.}
+\label{ch3:appD:tab:stagger}
+\begin{tabular}{lll}
+\toprule
+$\sigma_w$ stagger $s$ & plateau error & degradation \\
+\midrule
+$-1/2$ (correct half-cell) & $3.4\times10^{-4}$ & $1$ \\
+$0$ (unstaggered)          & $4.1\times10^{-2}$ & ${\approx}120$ \\
+$+1/2$ (wrong sign)        & $8.1\times10^{-2}$ & ${\approx}235$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Test suite}
+\label{ch3:appD:tests}
+
+The classical and circuit layers are pinned by $24$ unit tests
+(\texttt{tests/test\_absorbing.py}), grouped by the property classes
+they assert.  (i)~\emph{Generator structure and spectra}: the
+Collino--Tsogka profile amplitude and support;
+$\max\operatorname{Re}\operatorname{eig}(A)\le0$ to round-off for the
+collapsed 1D, general CFS ($\kappa_{\max}=2$, $\alpha_{\max}=0.05$),
+and 2D memory-form generators; the Hermitian split $A=H_1+iH_2$ with
+$H_1=-\diag(\sigma)\preceq0$ for the collapsed 1D form and the sponge.
+(ii)~\emph{Collapse}: the 1D memory form reproduces the collapsed
+diagonal damping to $10^{-10}$.  (iii)~\emph{Absorption and reflection
+bounds}: interior energy below $10^{-5}$ where the hard-wall reference
+retains more than $0.5$; round-trip amplitude reflection below
+$5\times10^{-3}$; 2D CPML and sponge energy decay; and the
+gold-standard true reflection below $10^{-3}$ on the reduced instance.
+(iv)~\emph{Recovery thresholds}: scalar decay recovered to $10^{-4}$;
+the cubic profile beating the kinked profile at equal resolution; 1D
+recovery below $2\times10^{-3}$ with a plateau-flatness diagnostic; 2D
+sponge recovery below $10^{-3}$ with $\lambda^{+}=0$ asserted; and the
+2D CPML threshold of Section~\ref{ch3:sec:lemma} verified in both
+directions---accurate above $p^{*}=\lambda^{+}T+1$ and at least ten
+times worse below.  (v)~\emph{Circuit-versus-matrix agreement}: the
+exact-Hamiltonian-gate path against the numpy per-mode pipeline to
+$10^{-8}$ (pinning the QFT/FFT conventions and qubit ordering); the
+Trotterised Bell circuit to $5\times10^{-2}$; the separated 2D operator
+strings against the block Hamiltonian to $10^{-13}$; the per-step
+orders $O(\delta t^{2})$ and $O(\delta t^{3})$ of the projector-aware
+Bell circuit and its Strang variant; and the 17-qubit end-to-end
+gate-level run to $3\times10^{-2}$.  (vi)~\emph{Guards and
+regression}: rejection of out-of-range recovery slices, degenerate
+layers, and inconsistent damping vectors; and a regression test pinning
+the untouched closed-domain library (the mixed Dirichlet/Neumann
+Laplacian stencil).  Every bound above is asserted numerically, so any
+change that degrades a spectrum, a reflection, a recovery threshold, or
+a circuit convention fails the suite.

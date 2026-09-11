@@ -14,6 +14,33 @@
 \usepackage{hyperref}           % For referencing though out the document. Can change, look at user manual how to change
 \usepackage{pdflscape}          % For inserting landscape-mode objects 
 \usepackage{amsmath}            % For matrices
+
+% ----- Needed by the journal chapters (quantum circuits, schematics, tables) -----
+\usepackage{xcolor}             % Colors for the figures drawn in TeX
+\usepackage{tikz}               % Schematic diagrams (graphicx is loaded by csm-thesis)
+\usetikzlibrary{arrows.meta, fit, backgrounds, shapes.geometric, positioning, calc}
+\usepackage{quantikz}           % Quantum circuit diagrams
+\makeatletter\@ifundefined{ket}{\usepackage{braket}}{}\makeatother % \ket, if quantikz does not provide it
+\usepackage{booktabs}           % \toprule, \midrule, \bottomrule
+
+% ----- REVTeX/quantumarticle constructs from the Chapter 3 paper -----
+% The thesis is single-column, so these two-column helpers are no-ops here.
+% widetext widened content across a two-column page; here it shrinks it to fit
+\newenvironment{widetext}{\small}{}
+\providecommand{\onecolumngrid}{}
+\providecommand{\twocolumngrid}{}
+\providecommand{\squeezetable}{}
+
+% ----- Notation and environments used by the journal chapters -----
+\newtheorem{lemma}{Lemma}[section]      % "Lemma 3.1" (chapters are sections here)
+\newenvironment{lemproof}{\par\noindent\emph{Proof.}\ }{\hfill$\blacksquare$\par\medskip}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\lamax}{\lambda_{\max}}
+\newcommand{\Ht}{\widetilde{H}_1}
+\newcommand{\At}{\widetilde{A}}
+% NOTE: do not use \makecell (or any nested tabular) inside a table float; the
+% template rejects it with "Caption must be above table". Use \shortstack instead.
+% --------------------------------------------------------------------------------
 \usepackage{listings}           % For inserting programming code
 \usepackage{rotating}           % For inserting sideways tables and figures
 \usepackage{lipsum}             % For dummy text. You can remove this once you have remove all of the example text. 
@@ -115,9 +142,10 @@ For those that shall follow after.
 % are advised to separate you chapters into their own files, as this example shows
 \input{chapter/01-introduction}
 \input{chapter/02-background}
-\input{chapter/03-seismic-traveltime-annealing}
-\input{chapter/04-paper-two}
-\input{chapter/05-conclusions}
+\input{chapter/03-qawave-cpml}
+\input{chapter/04-seismic-traveltime-annealing}
+\input{chapter/05-quantum-fwi}
+\input{chapter/06-conclusions}
 
 % Example chapters (figures, tables, equations, journal papers) are in template/chapter/
 
@@ -143,6 +171,10 @@ For those that shall follow after.
 
 
 % >>>>>>>>> Appendices (if applicable) <<<<<<<<<<
-% \input{chapter/A-Appendix}   % add your appendices here; examples are in template/chapter/
+% Appendices of the Chapter 3 paper (qawave-cpml)
+\input{chapter/A-appendix-cpml}
+\input{chapter/B-appendix-schrodingerisation}
+\input{chapter/C-appendix-validation}
+\input{chapter/D-appendix-symmetrizer}
 
 \end{document}

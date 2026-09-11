@@ -1,0 +1,1138 @@
+\chapter{Convolution Absorbing Boundaries for Explicit-Circuit Quantum Simulation of the Wave Equation}\label{chap:qawave}
+
+\begin{center}
+    A paper submitted to \emph{Quantum}.
+
+    Hoang Anh Nguyen\footnote{Department of Geophysics, Colorado School of Mines, Golden, Colorado 80401, USA}$^,$\footnote{Primary researcher and author for correspondence}
+\end{center}
+
+\subsection{Abstract}
+
+Explicit quantum circuits for the wave equation via Hamiltonian simulation
+[Sato \emph{et al.}, Phys.\ Rev.\ Research \textbf{6}, 033246 (2024)] are
+restricted to closed (Dirichlet/Neumann/periodic) domains, in which
+outgoing waves reflect back into the computational region.  We add
+absorbing boundaries of the convolution type---the
+complex-frequency-shifted perfectly matched layer (CPML) implemented
+through exponential-kernel memory variables---and make the resulting
+non-unitary dynamics quantum-implementable by Schr\"odingerisation.  We
+obtain three results.  (i)~Explicit gate-level circuits for the absorbing
+evolution, obtained by extending the Bell-basis term-evolution circuit of
+Sato \emph{et al.}\ to projector-valued operator strings and Trotterising
+to second order, demonstrated end to end on 17--21 qubits with
+$10^{-3}$--$10^{-2}$ accuracy against exact references.  (ii)~A structural
+obstruction: the memory-form CPML generator has an irreducibly indefinite
+Hermitian part, $\lamax(H_1)=\Theta(\sqrt{\sigma_{\max}c/h})$ under any
+diagonal rescaling of the memory fields, which by the recovery threshold
+of Jin, Liu, and Ma costs $e^{2\lamax T}$ in post-selection.  (iii)~A
+remedy: a classically precomputed Lyapunov symmetrizer renders the
+transformed generator dissipative, replacing the $T$-dependent penalty by
+a $T$-independent conditioning factor, measured at
+$\kappa_2(S)=4.0\times10^{2}$--$8.6\times10^{2}$ at shift
+$\epsilon=10^{-2}$ on grids with up to $n=4096$ unknowns, saturating under mesh refinement.  The measured
+crossover times $T^{*}=\ln\kappa^{2}/(2\lambda^{+})\approx 7$--$16$ are
+short: beyond them the symmetrized recovery wins by 4--26 orders of
+magnitude in post-selection cost and, at the longest horizons tested, is
+the only working recovery.
+% ======================================================================
+\subsection{Introduction}
+\label{ch3:sec:intro}
+
+Quantum algorithms for partial differential equations (PDEs) divide into
+oracle-based constructions, which assume block-encoded or sparse-access
+operators \cite{costa2019wave,novikau2023qsvt}, and the explicit-circuit
+line initiated for hyperbolic problems by Sato \emph{et
+al.}~\cite{sato2024hamiltonian}, in which every gate of the time-stepping
+circuit is written down and the cost is dominated by a number of
+elementary operations polynomial in the register size.  Explicit-circuit constructions for wave-type equations published to date
+operate on \emph{closed} domains: Dirichlet, Neumann, or periodic
+boundaries, for which the semi-discrete generator is skew-Hermitian and
+the evolution is genuinely
+unitary~\cite{sato2024hamiltonian,bosch2025sources}; the extension to
+nonconservative systems~\cite{sato2025nonconservative} admits a bulk
+damping term $\zeta(x)\,\partial_t u$ via a linear combination of
+Hamiltonian simulations, but its boundaries remain closed walls and its
+demonstrations are confined to the undamped acoustic and uniform heat
+equations.  Scattering and radiation problems,
+however, are posed on open domains; truncating the domain with hard walls
+reflects every outgoing wave back into the region of interest.  Classical
+solvers handle this with absorbing layers, the de facto standard being the
+perfectly matched layer (PML) and its convolutional,
+complex-frequency-shifted variant
+(CPML)~\cite{roden2000cpml,komatitsch2007unsplit,collino2001pml,duru2022pmlreview}.
+Absorption is dissipation: the generator acquires a non-trivial Hermitian
+part, and the dynamics ceases to be unitary.
+
+Schr\"odingerisation~\cite{jin2023schrodingerisation} is a general route
+for running such non-unitary linear dynamics on a quantum computer: the
+warped phase-space transform turns $\dot z = Az$ into a genuine
+Hamiltonian evolution on one extra register, at the price of a
+post-selected recovery slice.  \ref{ch3:fig:pipeline} summarises the
+resulting four-step structure of this work.
+
+\begin{figure}[tb]
+  \centering
+  \begin{tikzpicture}[
+      box/.style={draw, rounded corners=2pt, align=center,
+                  inner sep=4pt, font=\small, text width=0.86\linewidth},
+      lab/.style={font=\scriptsize\itshape, anchor=west},
+      node distance=14pt]
+    \node[box] (b1) {\textbf{Physics}: second-order acoustic wave
+      equation\quad $\partial_t^2 u = c^2\Delta u$};
+    \node[box, below=of b1] (b2) {\textbf{First-order reduction}
+      (quantum encoding): $\psi=[v;w]$,\;
+      $i\,\partial_t\psi = H\psi$ \;---\; unitary};
+    \node[box, below=of b2] (b3) {\textbf{Absorbing layer} (CPML,
+      convolution memory): $\dot\psi = (-iH-\Lambda)\psi$ \;---\;
+      non-Hermitian};
+    \node[box, below=of b3] (b4) {\textbf{Schr\"odingerisation}:
+      $H_{\mathrm{tot}} = D_\eta\otimes H_1 - I\otimes H_2$ \;---\;
+      unitary again ($+\,n_p$ qubits), recover at $p^{*}$};
+    \draw[->] (b1) -- node[lab] {\;Ref.~\cite{sato2024hamiltonian}} (b2);
+    \draw[->] (b2) -- node[lab] {\;this work, Section~\ref{ch3:sec:generators}} (b3);
+    \draw[->] (b3) -- node[lab] {\;Sections~\ref{ch3:sec:schro},
+      \ref{ch3:sec:circuits}} (b4);
+  \end{tikzpicture}
+  \caption{The four-step structure: second-order acoustic physics,
+  first-order quantum encoding, convolution absorbing layer applied in
+  that first-order form, and Schr\"odingerisation restoring unitarity.
+  The cost of step three---the indefiniteness quantified by
+  Lemma~\protect\ref{ch3:lem:threshold}---and its remedy (the Lyapunov symmetrizer)
+  are the subject of Section~\protect\ref{ch3:sec:symmetrizer}.}
+  \label{ch3:fig:pipeline}
+\end{figure}  The programme now spans artificial boundary
+conditions for the time-dependent Schr\"odinger
+equation~\cite{jin2024abc}, inhomogeneous terms and the recovery-threshold
+theory~\cite{jin2024recovery}, ill-posed problems~\cite{jin2024illposed},
+Maxwell's equations~\cite{jin2023maxwell,ma2024maxwellcircuits}, elastic
+waves~\cite{jin2025elastic}, gate-level circuits for parabolic
+problems~\cite{hu2024quantum,jin2024heat}, query-optimal
+formulations~\cite{jin2025queries}, and implicit-explicit integrators
+for multiscale dynamics including the bulk-damped telegraph
+equation~\cite{hu2026imex}.  What it does not yet contain is an
+absorbing boundary for a classical wave-type equation, at either matrix or
+circuit level.
+
+\subsubsection{Related work and positioning}
+\label{ch3:sec:related}
+
+The positioning below was verified by a full-text literature review
+through June 2026.\footnote{Adversarially cross-checked sweep over
+published and preprinted work, 2023--2026; all primary claims below were
+confirmed against the full texts of the cited papers.}
+
+\noindent\textbf{The core niche is open.}  No published or preprinted work
+through June 2026 combines any absorbing boundary (PML, CPML, complex
+absorbing potential, sponge, or Dirichlet-to-Neumann map) for
+\emph{classical wave-type equations} with Schr\"odingerisation or any
+other unitarisation, at matrix or circuit level.  Jin and
+Zhang~\cite{jin2025elastic} (elastic waves) state verbatim that
+non-periodic boundaries ``remain an open issue'' left ``to the future.''
+Maxwell circuits exist only for perfect-electric-conductor
+boundaries~\cite{ma2024maxwellcircuits} and for impedance boundaries at
+matrix level~\cite{jin2023maxwell}; the 2026 circuit
+papers~\cite{liang2026structure,guseynov2026robin}
+(Robin/Neumann/Dirichlet) contain no absorbing-boundary content.
+Two 2025 works corroborate this independently.  B\"osch \emph{et
+al.}~\cite{bosch2025sources}, simulating lossless wave equations by
+Hamiltonian simulation, state that owing to their ``fundamentally
+nonenergy conserving nature'' absorbing boundaries and PMLs are ``not
+straightforward to implement\ldots within the HS framework,'' and resort
+to approximate \emph{random} boundaries that scramble, rather than
+absorb, outgoing energy.  Sato \emph{et
+al.}~\cite{sato2025nonconservative} admit spatially varying bulk damping
+$\zeta(x)\ge0$ in an LCHS formulation, but the resulting Hermitian part
+is semidefinite by construction---the diagonal sponge/CAP case that
+Lemma~\ref{ch3:lem:threshold} explicitly excludes---no layer-localised
+damping or absorbing-layer construction appears, and no damped-wave
+circuit is demonstrated.
+
+\noindent\textbf{PML plus Schr\"odingerisation per se is prior art} for the
+time-dependent Schr\"odinger equation~\cite{jin2024abc}, at
+query-complexity level and without circuits.  Our contribution is
+therefore framed as \emph{wave-type equations plus explicit circuits}.
+
+\noindent\textbf{The recovery threshold is established theory}
+\cite[Thm.~3.1]{jin2024recovery}, and an indefinite boundary-augmented
+Hermitian part was already handled through that threshold for the heat
+equation \cite[Remark~1]{jin2024heat}.  Our delta is the
+\emph{structural} result: Lemma~\ref{ch3:lem:threshold} proves that the
+indefiniteness of CPML memory forms cannot be removed by any diagonal
+rescaling and quantifies its rate, $\Theta(\sqrt{\sigma_{\max}c/h})$.
+
+\noindent\textbf{Diagonal similarity preconditioning is prior art.}  Liang and
+Liu~\cite{liang2026structure} use a diagonal transform to enforce a
+positive-semidefinite Hermitian part before applying a
+linear-combination-of-Hamiltonian-simulation algorithm to parabolic
+problems.  This is the foil that sharpens our symmetrizer contribution:
+Lemma~\ref{ch3:lem:threshold} proves that diagonal transforms are
+\emph{insufficient} for CPML generators; the full (non-diagonal) Lyapunov
+symmetrizer of Section~\ref{ch3:sec:symmetrizer} is both necessary and
+sufficient.
+
+\noindent\textbf{Bell-basis circuits for non-unitary PDEs are prior art}
+\cite{hu2024quantum,jin2024heat}.  Our circuit delta is narrower and is
+framed accordingly: projector-valued operator strings for separated
+multi-field (block) Hamiltonians, the two-level symmetrised splitting, and
+the absorbing-boundary application at 17--21 qubits
+(Section~\ref{ch3:sec:circuits}).
+
+\subsubsection{Contributions}
+
+Ordered by verified novelty:
+\begin{enumerate}
+\item the first absorbing boundaries for wave-type equations in any
+  unitarisation framework, closing the open problem stated in
+  Ref.~\cite{jin2025elastic};
+\item the threshold lemma (Lemma~\ref{ch3:lem:threshold}) and the Lyapunov
+  symmetrizer that circumvents it, with the diagonal-insufficiency
+  contrast to Ref.~\cite{liang2026structure};
+\item end-to-end validated explicit circuits, extending the Bell-basis
+  constructions of Refs.~\cite{sato2024hamiltonian,hu2024quantum} to
+  projector-valued block structure, with gold-standard classical
+  validation.
+\end{enumerate}
+
+% ======================================================================
+\subsection{Background}
+\label{ch3:sec:background}
+
+\subsubsection{The wave equation as Hamiltonian simulation}
+\label{ch3:sec:wave}
+
+Following Ref.~\cite{sato2024hamiltonian}, the wave equation
+$\partial_t^2 u = c^2\Delta u$ is first-order-reduced through
+$\psi = [v;\,w]$ with $v=\partial_t u$ and $w = i c\,\partial_x u$
+(discretely, $w = icDu$), so that $i\,\partial_t\psi = H\psi$ with
+\begin{equation}
+  H \;=\; \begin{bmatrix} 0 & D \\ D^{\dagger} & 0 \end{bmatrix},
+  \label{ch3:eq:waveH}
+\end{equation}
+where $D$ is the forward-difference operator and
+$D^{\dagger}=-D_{\mathrm{b}}$ its negative backward counterpart.  Mixed
+Dirichlet/Neumann boundary conditions emerge from the operator products
+(the conventions of Ref.~\cite{sato2024hamiltonian}, verified numerically
+in our implementation).  In two dimensions we use the separated-block form
+$\psi = [v;\,w_x;\,w_y]$---one block per field, in the style of Eq.~(32)
+of Ref.~\cite{sato2024hamiltonian} with $d=3$---instead of the
+complex-combined two-block form, because per-direction damping requires
+separated gradient components.
+
+\subsubsection{The convolutional perfectly matched layer}
+\label{ch3:sec:cpml}
+
+The CPML stretches each coordinate by the complex-frequency-shifted (CFS)
+factor
+\begin{equation}
+  s(\omega) \;=\; \kappa + \frac{\sigma}{\alpha + i\omega},
+  \label{ch3:eq:cfs}
+\end{equation}
+which in the time domain replaces every spatial derivative by a causal
+convolution with an exponential kernel~\cite{roden2000cpml},
+\begin{equation}
+  \partial_x f \;\longrightarrow\; \frac{1}{\kappa}\,\partial_x f
+    + \zeta * \partial_x f, \qquad
+  \zeta(t) = -\frac{\sigma}{\kappa^{2}}\,
+    e^{-(\sigma/\kappa+\alpha)t}\,\theta(t).
+  \label{ch3:eq:kernel}
+\end{equation}
+Each convolution is carried by one memory field obeying the local ODE
+\begin{equation}
+  \partial_t \phi \;=\; -\Bigl(\frac{\sigma}{\kappa}+\alpha\Bigr)\phi
+    \;-\; \frac{\sigma}{\kappa^{2}}\,\partial_x f .
+  \label{ch3:eq:memoryode}
+\end{equation}
+The damping profile is polynomially graded inside a layer of
+$n_{\mathrm{pml}}$ points, $\sigma(d) = \sigma_{\max}(d/L)^{m}$ with
+$\sigma_{\max} = -(m{+}1)\,c\ln R_0/(2L)$~\cite{collino2001pml}; we use
+the standard recipe $m=2$, $R_0=10^{-3}$ with the parameter conventions of
+Komatitsch and Martin~\cite{komatitsch2007unsplit}.  The profile is
+sampled at the staggered locations where each field effectively lives
+($v$ at integer nodes, $w$ at half-cells).  This stagger is load-bearing:
+an ablation shows that unstaggered sampling degrades the measured
+reflection by factors of 120--235.
+
+\subsubsection{Schr\"odingerisation}
+\label{ch3:sec:schro}
+
+Write the semi-discrete absorbing dynamics as $\dot z = Az$ and split
+$A = H_1 + iH_2$ with $H_1=(A+A^{\dagger})/2$ and
+$H_2=(A-A^{\dagger})/(2i)$, both Hermitian.  Only $H_1$ obstructs
+unitarity: $\tfrac{d}{dt}\|z\|^{2} = 2\,z^{\dagger}H_1z$, so $e^{At}$ is
+unitary precisely when $H_1=0$, whereas $iH_2$ is already skew-Hermitian.
+The warped transform $w(t,p)=e^{-p}z(t)$ trades that obstruction for one
+extra dimension: because $\partial_p w = -w$, the offending term can be
+rewritten as $H_1 w = -H_1\partial_p w$, giving
+\begin{equation}
+  \partial_t w \;=\; -H_1\partial_p w + iH_2 w .
+  \label{ch3:eq:warped}
+\end{equation}
+The rewrite is applied to the $H_1$ term alone---$iH_2$ needs no
+repair---and that is precisely what it buys: $\partial_p$ is
+skew-Hermitian, hence so is $-H_1\otimes\partial_p$, and the enlarged
+generator is skew-Hermitian in full.  A Fourier series in $p$, under
+which $\partial_p$ acts as multiplication by $i\eta_k$ with $\eta_k$ the
+$k$th grid frequency, decouples Eq.~\eqref{ch3:eq:warped} into unitary
+evolutions per mode~\cite{jin2023schrodingerisation},
+\begin{equation}
+  \hat w_k(T) \;=\; e^{-iT(\eta_k H_1 - H_2)}\,\hat w_k(0),
+  \label{ch3:eq:permode}
+\end{equation}
+i.e.\ a Hamiltonian simulation of
+$H_{\mathrm{tot}} = D_\eta\otimes H_1 - I\otimes H_2$ on the system
+register plus one $p$ register of $n_p$ qubits.  Since $e^{-p}$ is not
+square-integrable on $p<0$, the profile is extended to the left half-line
+by a normalisable $g$; the initial data $w(0,p)=g(p)\,z(0)$ is then a
+product state across the two registers.  The
+solution is recovered from a slice,
+\begin{equation}
+  z(T) \;=\; e^{p^{*}} w(T,p^{*}),
+  \qquad
+  p^{*} \;\ge\; \lambda^{+}_{\max}(H_1)\,T,
+  \label{ch3:eq:recovery}
+\end{equation}
+where the threshold on $p^{*}$ is Theorem~3.1 of
+Ref.~\cite{jin2024recovery}.  The kinked profile $g(p)=e^{-|p|}$ is only
+$O(\Delta p)$ accurate; the $C^{1}$ cubic profile of
+\cite[Remark~4.9]{jin2024recovery} restores $O(\Delta p^{2})$ while
+keeping $g(p)=e^{-p}$ for $p\ge0$, leaving Eq.~\eqref{ch3:eq:recovery}
+unchanged.
+
+% ======================================================================
+\subsection{Absorbing generators}
+\label{ch3:sec:generators}
+
+\subsubsection{One dimension: exact collapse of the convolution}
+\label{ch3:sec:1d}
+
+With $\kappa=1$, $\alpha=0$ the convolution collapses \emph{exactly} (for
+data supported outside the layer) to block-diagonal damping,
+\begin{equation}
+  \dot\psi = A\psi, \qquad
+  A \;=\; -iH - \diag(\sigma_v,\, \sigma_w),
+  \label{ch3:eq:1dcollapse}
+\end{equation}
+so $H_1 = -\diag(\sigma)\preceq 0$ and the recovery
+threshold~\eqref{ch3:eq:recovery} is unconditional ($\lambda^{+}=0$, any small
+$p^{*}>0$ is valid).  The proof is the memory ansatz
+$\phi = -\sigma v/\gamma$, which satisfies the memory
+ODE~\eqref{ch3:eq:memoryode} identically for data supported outside the
+layer; we verify the collapse numerically to $6\times10^{-13}$.  The
+general CFS memory form (two extra block qubits) is provided for
+$\kappa>1$ or $\alpha>0$.
+
+\subsubsection{Two dimensions: memory form and classical validation}
+\label{ch3:sec:2d}
+
+In 2D the damping acts per direction, so the state uses the
+separated-block form padded to eight blocks (three extra block qubits),
+\begin{equation}
+  \bigl[\,v;\; w_x;\; w_y;\; \phi_{vx};\; \phi_{vy};\;
+        \phi_{x};\; \phi_{y};\; 0\,\bigr],
+  \label{ch3:eq:blocks}
+\end{equation}
+with the memory injections masked to the layer strips.  Corners need no
+special treatment---both directions' memory fields are simultaneously
+active, the structural advantage of unsplit CPML over split
+formulations~\cite{roden2000cpml}.  Long-time stability is a serious
+concern for PMLs in
+general~\cite{becache2003stability,becache2004longtime,duru2022pmlreview};
+here we measure $\max\operatorname{Re}\operatorname{eig}(A) = 0$ to
+round-off across all tested configurations.
+
+\emph{Gold-standard validation.}  Comparing the truncated domain against
+a $4\times$ enlarged reference, the true reflection is $3.4\times10^{-4}$
+(1D, $n_{\mathrm{pml}}=12$) and $2.8\times10^{-4}$ (2D $32\times32$,
+$n_{\mathrm{pml}}=8$), at the floor reported by Komatitsch and
+Martin~\cite{komatitsch2007unsplit}.
+
+\emph{Convergence} [1D gold standard, $N=128$ versus an $N=512$
+reference, plateau over $T\in\{100,120,140\}$ with plateau spread
+$<10^{-9}$, i.e.\ fully converged; \ref{ch3:fig:convergence}(a,b)]:
+\begin{itemize}
+\item versus $n_{\mathrm{pml}}$ at $R_0=10^{-3}$: $6.7\times10^{-4}$ (4),
+  $2.6\times10^{-4}$ (6), $2.6\times10^{-4}$ (8), $3.4\times10^{-4}$ (12),
+  $4.2\times10^{-4}$ (16)---\emph{non-monotonic}, with a minimum at
+  $n_{\mathrm{pml}}\approx6$--$8$.  The two contributions are the
+  discrete transition error, which decreases with layer width, and the
+  wall-return reflection, which \emph{increases toward the design value
+  from below}: node sampling of the polynomial profile overestimates
+  $\int\sigma\,dx$ by a factor $1+O(1/n_{\mathrm{pml}})$, so the
+  effective round-trip reflection is
+  $R_{\mathrm{eff}}=R_0^{\,\Sigma\sigma h/\!\int\!\sigma}$
+  ($R_0^{1.38}=7.1\times10^{-5}$ at $n_{\mathrm{pml}}=4$ rising to
+  $R_0^{1.09}=5.2\times10^{-4}$ at $16$); for
+  $n_{\mathrm{pml}}\ge8$ the measured reflection equals this
+  prediction within $5$--$20\%$, i.e.\ the layer performs at design,
+  converging to $R_0$ from below [\ref{ch3:fig:convergence}(a)].
+  Jointly rescaling the staggered profile pair so the discrete sum
+  matches the design integral (\texttt{calibration='discrete'},
+  Appendix~\ref{ch3:appD:validation}) makes the realised reflection flat at
+  $0.81$--$1.08\,R_0$ over the whole sweep---a one-line calibration fix
+  that applies to classical CPML codes as well;
+\item versus $R_0$ at $n_{\mathrm{pml}}=12$: $4.5\times10^{-3}$
+  ($10^{-2}$), $3.4\times10^{-4}$ ($10^{-3}$), $4.3\times10^{-5}$
+  ($10^{-4}$)---tracking the design reflection $R_0$ within a factor
+  ${\sim}2.3$ over two decades.  The Collino--Tsogka amplitude
+  formula~\cite{collino2001pml} is predictive in this discretisation.
+\end{itemize}
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/paper_P1_convergence.png}
+  \caption{Classical and Schr\"odingerisation convergence.
+  (a)~Gold-standard reflection (truncated domain versus $4\times$
+  reference) versus layer width $n_{\mathrm{pml}}$ at design reflection
+  $R_0=10^{-3}$.  The curve is non-monotonic: the transition error falls
+  with layer width while the wall return rises toward the design $R_0$
+  from below, because node sampling of the polynomial profile
+  over-damps thin layers (dashed curve: the predicted discrete
+  wall-return $R_{\mathrm{eff}}=R_0^{\,\Sigma\sigma
+  h/\!\int\!\sigma}$, which the measurement tracks within
+  $5$--$20\%$ for $n_{\mathrm{pml}}\ge8$).  Red squares: the
+  discretely calibrated profile pair (Appendix~\protect\ref{ch3:appD:validation}),
+  for which the realised reflection is flat at the design value.
+  (b)~Reflection versus $R_0$ at $n_{\mathrm{pml}}=12$: the measured
+  reflection tracks the Collino--Tsogka design value within a factor
+  ${\sim}2.3$ over two decades.
+  (c)~Recovery error versus $p$-register size $n_p$ for the kinked
+  $e^{-|p|}$ warping profile [$O(\Delta p)$] and the $C^{1}$ cubic
+  profile [$O(\Delta p^{2})$] of Ref.~\protect\cite{jin2024recovery}, 1D CPML
+  benchmark.
+  (d)~Trotter splitting error versus step count at orders 1 and 2
+  (fitted slopes $-1.02$ and $-2.01$), measured against the exact
+  Schr\"odingerised evolution to isolate the splitting error.}
+  \label{ch3:fig:convergence}
+\end{figure}
+
+\subsubsection{The recovery-threshold obstruction}
+\label{ch3:sec:lemma}
+
+The memory form pays a price.  The injection column ($\gamma$ on one
+side) and the memory-source row ($\sigma\partial_x/\gamma$ on the other)
+of each memory field are structurally asymmetric, and this asymmetry
+cannot be scaled away.  Throughout this section
+$\beta_j = \sigma_j/\kappa_j+\alpha_j\ge0$ denotes the CFS decay rate at
+node $j$; we set the wave speed $c=1$ (so the stencil entries obey
+$|D_{ji}|=1/h$), the general rate restoring a factor of $c$.
+
+% Reconciled 2026-06-11: the (w_i,phi_j) coupling is one-directional
+% (A[w,phi]=0), so the entry s lands in H_1 as s/2 and the eigenvalue of
+% [[0,s/2],[s/2,-beta]] is (sqrt(beta^2+s^2)-beta)/2 — both pairs are
+% governed by the same f.  The lemma statement now matches the proof.
+\begin{lemma}[diagonal irreducibility]
+\label{ch3:lem:threshold}
+Let $A$ be the memory-form CPML generator of Section~\ref{ch3:sec:2d} and let
+$G=\diag(\gamma_j)>0$ be any diagonal rescaling of the memory fields.
+Let $s_j$ denote the magnitude of the memory-source coupling
+($s_j\sim\sigma_j/(\gamma_j h)$ for the difference stencil).  Then the
+Hermitian part $H_1(G)$ of the rescaled generator satisfies
+\begin{equation}
+  \lamax\bigl(H_1(G)\bigr) \;\ge\;
+  \max_j\, \max\bigl\{\, f(\gamma_j,\beta_j),\; g(s_j,\beta_j) \,\bigr\}
+  \;>\; 0,
+  \label{ch3:eq:lemmabound}
+\end{equation}
+with $f(\gamma,\beta) = \bigl(\sqrt{\beta^{2}+\gamma^{2}}-\beta\bigr)/2$,
+arising from the $2\times2$ principal submatrix
+$\bigl[\begin{smallmatrix} 0 & \gamma/2 \\ \gamma/2 & -\beta
+\end{smallmatrix}\bigr]$
+on a $(v_j,\phi_j)$ pair by Cauchy interlacing, and
+$g(s,\beta) = f(s,\beta)$ from a $(w_i,\phi_j)$ pair (the one-directional
+coupling entry $s$ enters $H_1$ as $s/2$, so both pairs are governed by
+the same $f$).  Optimising $\gamma$ against the two bounds gives
+\begin{equation}
+  \lamax(H_1) \;=\; \Theta\!\left(\sqrt{\sigma_{\max}\,c/h}\right)
+  \qquad \text{as } h\to0,
+  \label{ch3:eq:lemmarate}
+\end{equation}
+independent of the scaling.
+\end{lemma}
+
+The full proof is given in Appendix~\ref{ch3:app:proof}.  Its consistency
+check is instructive: the collapsed 1D form of Section~\ref{ch3:sec:1d} has
+\emph{no} injection pair (the memory is eliminated and the damping is
+diagonal), so the lemma does not apply---and indeed
+$H_1=-\diag(\sigma)\preceq0$ there.
+
+\emph{Consequence.}  By the threshold of Eq.~\eqref{ch3:eq:recovery}
+\cite[Thm.~3.1]{jin2024recovery}, recovery requires
+$p^{*}\ge\lambda^{+}T$ with $\lambda^{+}\equiv\lamax^{+}(H_1)$, and the
+post-selection probability of the recovery window scales as
+$e^{-2p^{*}} = e^{-2\lambda^{+}T}$.  Numerically: at $\sigma_{\max}=0.5$
+on an $8\times8$ grid, $\lambda^{+}=0.683$; recovery below the threshold
+is $O(1)$ wrong, while above it the error drops to $2\times10^{-3}$
+relative ($10^{-4}$ with $n_p=11$); see \ref{ch3:fig:threshold}.  The
+sponge/CAP alternative (diagonal damping $\sigma_x+\sigma_y$, four
+blocks) has $H_1\preceq0$ unconditionally at the price of matched-layer
+quality.
+
+% ----------------------------------------------------------------------
+% CPML versus sponge at matched resources (end of Sec. III "The
+% recovery-threshold obstruction"; replaces the [[CPML vs sponge at
+% matched resources --- pending sweeps]] todo).
+% Source of every number: paper/experiments/cpml_vs_sponge.py
+%   -> paper/experiments/cpml_vs_sponge_results.json (run 2026-06-11).
+% Labels prefixed cmp: to avoid collisions.
+% ----------------------------------------------------------------------
+
+\emph{CPML versus sponge at matched resources.}  A matched-resource
+sweep quantifies this tradeoff: both absorbers on the same $32\times32$
+grid with equal layer widths $n_{\mathrm{pml}}\in\{4,8,12\}$ and
+default parameters, each measured against one shared $4\times$ enlarged
+($128\times128$) hard-wall reference by the gold-standard protocol of
+Section~\ref{ch3:sec:2d}, the reflection being the maximum interior error over
+$T\in\{8,16,24,32,40\}$ (\ref{ch3:cmp:tab:matched}).  At equal layer
+budget the CPML reaches its discrete wall-return level of
+$2.7\times10^{-4}$ by $n_{\mathrm{pml}}=8$ [consistent with the
+$2.8\times10^{-4}$ gold-standard value of Section~\ref{ch3:sec:2d}], while the
+sponge stays at the percent level, improving only from
+$6.2\times10^{-2}$ to $3.6\times10^{-2}$ across the sweep---a quality
+gap of a factor of $170$ at $n_{\mathrm{pml}}=8$ ($130$ at $12$).  The
+quantum-side cost inverts the ranking.  The sponge has $\lambda^{+}=0$
+exactly, so its recovery post-selects at the $T$-independent
+$e^{2p^{*}}\approx1.2$ (default slice $p^{*}\approx0.11$); the CPML
+pays $e^{2\lambda^{+}T}$, with $\lambda^{+}=0.93$--$1.54$ tracking the
+$\Theta(\sqrt{\sigma_{\max}c/h})$ rate of Lemma~\ref{ch3:lem:threshold} to
+within $5\%$---already $7\times10^{7}$ at $T=8$ and $1.6\times10^{39}$
+at $T=40$ for $n_{\mathrm{pml}}=8$.  Neither absorber dominates at
+matched resources: the sponge trades two orders of magnitude in
+reflection for an essentially free recovery, and the CPML trades an
+exponentially growing post-selection penalty for matched-layer
+accuracy---precisely the penalty that the symmetrizer of
+Section~\ref{ch3:sec:symmetrizer} replaces by a $T$-independent conditioning
+factor.
+
+\begin{table}[tb]
+\caption{CPML versus sponge at matched resources: $32\times32$ grid,
+equal layer width $n_{\mathrm{pml}}$, default parameters [$m=2$,
+$R_0=10^{-3}$, Collino--Tsogka amplitudes
+$\sigma_{\max}=2.59/1.30/0.86$ at $n_{\mathrm{pml}}=4/8/12$].
+Reflection is the gold-standard interior error against a single shared
+$4\times$ enlarged ($128\times128$) hard-wall reference, maximised over
+$T\in\{8,16,24,32,40\}$ ($\lVert z_0\rVert=1$).
+$\lambda^{+}=\lamax^{+}(H_1)$ sets the CPML post-selection penalty
+$e^{2\lambda^{+}T}$ (quoted at $T=40$) and tracks
+$\sqrt{\sigma_{\max}}$ to within $5\%$; the sponge has
+$\lambda^{+}=0$, post-selecting at the $T$- and
+$n_{\mathrm{pml}}$-independent $e^{2p^{*}}=1.2$ for the default
+recovery slice $p^{*}=0.11$.}
+\label{ch3:cmp:tab:matched}
+\begin{tabular}{lllll}
+\toprule
+ & \multicolumn{2}{c}{Reflection (max over $T$)} &
+   \multicolumn{2}{c}{CPML recovery cost} \\
+\cline{2-3}\cline{4-5}
+$n_{\mathrm{pml}}$ & CPML & sponge & $\lambda^{+}(H_1)$ &
+$e^{2\lambda^{+}T}$, $T{=}40$ \\
+\midrule
+4  & $4.2\times10^{-3}$ & $6.2\times10^{-2}$ & 1.54 & $2.2\times10^{53}$ \\
+8  & $2.7\times10^{-4}$ & $4.7\times10^{-2}$ & 1.13 & $1.6\times10^{39}$ \\
+12 & $2.8\times10^{-4}$ & $3.6\times10^{-2}$ & 0.93 & $1.5\times10^{32}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/fig4_2d_recovery_threshold.png}
+  \caption{The recovery threshold in action (2D CPML, $8\times8$ grid,
+  $\sigma_{\max}=0.5$, $T=10$).  Relative recovery error versus the slice
+  position $p^{*}$: below the threshold $p^{*}=\lambda^{+}T$ (dashed
+  line, $\lambda^{+}=0.683$) the recovered state is $O(1)$ wrong; just
+  above it the error drops by four orders of magnitude, then grows
+  slowly as $e^{p^{*}}$ amplifies the $p$-grid discretisation floor.}
+  \label{ch3:fig:threshold}
+\end{figure}
+
+\subsubsection{The Lyapunov symmetrizer}
+\label{ch3:sec:symmetrizer}
+
+A matrix $W>0$ solving the Lyapunov inequality
+$WA + A^{\dagger}W\preceq0$ gives, with $S=W^{1/2}$, a transformed
+generator $\At = SAS^{-1}$ whose Hermitian part satisfies
+\begin{equation}
+  \Ht \;=\; \tfrac12\, S^{-1}\bigl(WA + A^{\dagger}W\bigr)S^{-1}
+  \;\preceq\; 0
+  \label{ch3:eq:congruence}
+\end{equation}
+by congruence.  Recovery of $\tilde z = Sz$ is then valid at any
+$p^{*}>0$, and $z = S^{-1}\tilde z$ is recovered classically (or folded
+into the readout).  Since $A$ is only marginally stable (interior modes
+are neutral), we construct $W$ from the $\epsilon$-shifted generator:
+\begin{equation}
+  A_\epsilon = A - \epsilon I, \qquad
+  A_\epsilon^{\dagger}W + WA_\epsilon = -I, \qquad
+  S = W^{1/2},
+  \label{ch3:eq:lyapunov}
+\end{equation}
+the shift being undone classically by the factor $e^{\epsilon T}$.  An
+exact identity follows (Proposition~\ref{ch3:appE:prop} in
+Appendix~\ref{ch3:appE:symmetrizer}: congruence gives
+$\mathrm{Herm}(SA_\epsilon S^{-1})=-W^{-1}/2$ exactly; verified to better
+than $10^{-11}$ relative in all 18 measured configurations): the
+transform of the \emph{original} $A$ has
+\begin{equation}
+  \lamax(\Ht) \;=\; \epsilon - \frac{1}{2\lamax(W)} \;\approx\; \epsilon,
+  \label{ch3:eq:identity}
+\end{equation}
+while the transform of $A_\epsilon$ has $\Ht\preceq0$ strictly.  We
+therefore use the shifted transform; the undo factor
+$e^{\epsilon T}\le e^{0.4}$ over the horizons tested is trivial.
+
+\begin{table}
+\caption{Lyapunov-symmetrizer conditioning across all measured
+configurations [grids $(n_x,n_y)$ qubits per dimension, i.e.\ $8\times8$,
+$16\times8$, $16\times16$ points; $n$ is the full state dimension
+including the eight blocks].  $\lambda^{+}=\lamax^{+}(H_1)$ is the
+indefiniteness of the untransformed generator;
+$\kappa_2(S)=\sqrt{\operatorname{cond}_2(W)}$ the conditioning of the
+symmetrizer; $\lamax(\Ht^{(\epsilon)})$ the (strictly negative) largest
+Hermitian-part eigenvalue of the $\epsilon$-shifted transform
+$SA_\epsilon S^{-1}$; and $T^{*}=\ln\kappa^{2}/(2\lambda^{+})$ the
+crossover time beyond which the symmetrizer beats the direct
+above-threshold recovery.  All Lyapunov residuals are
+$\le1.4\times10^{-14}$ (relative).}
+\label{ch3:tab:kappa}
+\begin{tabular}{llllllll}
+\toprule
+Grid & $n$ & $\sigma_{\max}$ & $\epsilon$ & $\lambda^{+}(H_1)$ &
+$\kappa_2(S)$ & $\lamax(\Ht^{(\epsilon)})$ & $T^{*}$ \\
+\midrule
+$8\times8$ & 512 & 0.5 & $10^{-2}$ & 0.683 & $4.0\times10^{2}$ & $-4.6\times10^{-6}$ & 8.8 \\
+$8\times8$ & 512 & 0.5 & $10^{-3}$ & 0.683 & $3.0\times10^{3}$ & $-8.1\times10^{-8}$ & 11.7 \\
+$8\times8$ & 512 & 0.5 & $10^{-4}$ & 0.683 & $1.1\times10^{4}$ & $-6.0\times10^{-9}$ & 13.6 \\
+$8\times8$ & 512 & 1.0 & $10^{-2}$ & 0.927 & $5.1\times10^{2}$ & $-5.2\times10^{-6}$ & 6.7 \\
+$8\times8$ & 512 & 1.0 & $10^{-3}$ & 0.927 & $2.9\times10^{3}$ & $-1.6\times10^{-7}$ & 8.6 \\
+$8\times8$ & 512 & 1.0 & $10^{-4}$ & 0.927 & $9.8\times10^{3}$ & $-1.4\times10^{-8}$ & 9.9 \\
+$16\times8$ & 1024 & 0.5 & $10^{-2}$ & 0.687 & $5.1\times10^{2}$ & $-3.0\times10^{-6}$ & 9.1 \\
+$16\times8$ & 1024 & 0.5 & $10^{-3}$ & 0.687 & $7.0\times10^{3}$ & $-1.5\times10^{-8}$ & 12.9 \\
+$16\times8$ & 1024 & 0.5 & $10^{-4}$ & 0.687 & $3.1\times10^{4}$ & $-8.0\times10^{-10}$ & 15.0 \\
+$16\times8$ & 1024 & 1.0 & $10^{-2}$ & 0.956 & $7.5\times10^{2}$ & $-2.4\times10^{-6}$ & 6.9 \\
+$16\times8$ & 1024 & 1.0 & $10^{-3}$ & 0.956 & $7.0\times10^{3}$ & $-2.8\times10^{-8}$ & 9.3 \\
+$16\times8$ & 1024 & 1.0 & $10^{-4}$ & 0.956 & $2.7\times10^{4}$ & $-1.8\times10^{-9}$ & 10.7 \\
+$16\times16$ & 2048 & 0.5 & $10^{-2}$ & 0.694 & $5.7\times10^{2}$ & $-2.4\times10^{-6}$ & 9.1 \\
+$16\times16$ & 2048 & 0.5 & $10^{-3}$ & 0.694 & $9.9\times10^{3}$ & $-7.7\times10^{-9}$ & 13.3 \\
+$16\times16$ & 2048 & 0.5 & $10^{-4}$ & 0.694 & $6.6\times10^{4}$ & $-1.7\times10^{-10}$ & 16.0 \\
+$16\times16$ & 2048 & 1.0 & $10^{-2}$ & 0.972 & $8.6\times10^{2}$ & $-1.9\times10^{-6}$ & 6.9 \\
+$16\times16$ & 2048 & 1.0 & $10^{-3}$ & 0.972 & $1.2\times10^{4}$ & $-8.7\times10^{-9}$ & 9.7 \\
+$16\times16$ & 2048 & 1.0 & $10^{-4}$ & 0.972 & $6.3\times10^{4}$ & $-3.4\times10^{-10}$ & 11.4 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}
+\caption{End-to-end recovery tradeoff: direct versus symmetrized
+recovery, errors
+$\lVert z_{\mathrm{rec}}-e^{AT}z_0\rVert_2/\lVert e^{AT}z_0\rVert_2$.
+``Small $p^{*}$'' is the library-default slice three grid points above
+zero.  For the untransformed system above threshold,
+$p^{*}=\lambda^{+}T+1$ and the post-selection penalty is $e^{2p^{*}}$;
+entries marked ``--'' exceed the $p$-domain
+($\lambda^{+}T+1>p_{\max}$).  The symmetrized column uses the
+$\epsilon$-shifted transform at $\epsilon=10^{-3}$ recovered at the same
+small $p^{*}$, with the $T$-independent penalty
+$\kappa_2^{2}(S)$ of \protect\ref{ch3:tab:kappa}.  The $16\times16$ run uses a
+reduced $p$ register ($n_p=8$), which sets its higher error floor.}
+\label{ch3:tab:tradeoff}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llllllll}
+\toprule
+ & & \multicolumn{4}{c}{Untransformed} & \multicolumn{1}{c}{Symmetrized ($\epsilon=10^{-3}$)} \\
+\cline{3-6}\cline{7-7}
+Configuration & $T$ & err.\ (small $p^{*}$) & $p^{*}\!\ge\!\lambda^{+}T$ &
+err.\ (above thr.) & penalty $e^{2p^{*}}$ & err.\ (small $p^{*}$) \\
+\midrule
+$8\times8$ ($\sigma_{\max}=0.5$, $n_p=11$) & 10 & $3.4$ & 7.8 & $1.2\times10^{-4}$ & $6.3\times10^{6}$ & $1.2\times10^{-6}$ \\
+ & 20 & $8.3$ & 14.7 & $2.4\times10^{-1}$ & $5.4\times10^{12}$ & $2.4\times10^{-6}$ \\
+ & 40 & $2.6\times10^{1}$ & -- & -- & -- & $4.4\times10^{-6}$ \\
+$8\times8$ ($\sigma_{\max}=1.0$, $n_p=11$) & 10 & $7.2$ & 10.3 & $2.2\times10^{-2}$ & $8.4\times10^{8}$ & $2.1\times10^{-5}$ \\
+ & 20 & $1.6\times10^{1}$ & 19.6 & $3.0\times10^{2}$ & $1.0\times10^{17}$ & $2.3\times10^{-5}$ \\
+ & 40 & $2.9\times10^{1}$ & 38.1 & $7.3\times10^{15}$ & $1.2\times10^{33}$ & $3.5\times10^{-5}$ \\
+$16\times8$ ($\sigma_{\max}=0.5$, $n_p=10$) & 10 & $2.5$ & 7.9 & $1.1\times10^{-4}$ & $7.4\times10^{6}$ & $4.2\times10^{-6}$ \\
+ & 20 & $4.8$ & 14.8 & $4.5\times10^{-1}$ & $6.7\times10^{12}$ & $6.0\times10^{-6}$ \\
+ & 40 & $1.3\times10^{1}$ & -- & -- & -- & $1.1\times10^{-5}$ \\
+$16\times16$ ($\sigma_{\max}=0.5$, $n_p=8$) & 10 & $2.0$ & 8.0 & $1.3\times10^{-2}$ & $9.2\times10^{6}$ & $1.1\times10^{-4}$ \\
+ & 20 & $5.6$ & 15.0 & $7.5\times10^{1}$ & $1.0\times10^{13}$ & $5.2\times10^{-4}$ \\
+ & 40 & $2.5\times10^{1}$ & -- & -- & -- & $3.8\times10^{-3}$ \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\emph{Measured results} [grids $8\times8$, $16\times8$, $16\times16$
+($n=512$--$2048$), $\sigma_{\max}\in\{0.5,1.0\}$,
+$\epsilon\in\{10^{-2},10^{-3},10^{-4}\}$; Lyapunov residuals
+$\le1.4\times10^{-14}$; \ref{ch3:tab:kappa} and \ref{ch3:tab:tradeoff},
+\ref{ch3:fig:symmetrizer}]:
+\begin{itemize}
+\item \emph{End-to-end recovery at the default small $p^{*}$}
+  ($\epsilon=10^{-3}$): transformed errors
+  $1.2\times10^{-6}$--$3.5\times10^{-5}$ on the configurations with
+  $n_p\in\{10,11\}$, essentially flat in $T$ over $T\in\{10,20,40\}$; the
+  $16\times16$ run with a reduced $p$ register ($n_p=8$) gives
+  $1.1\times10^{-4}$--$3.8\times10^{-3}$, consistent with its
+  $O(\Delta p^{2})$ floor.  The untransformed system at the same $p^{*}$
+  returns $O(1)$--$O(10)$ garbage growing with $T$.
+\item \emph{The direct above-threshold method is worse than its nominal
+  $e^{2\lambda^{+}T}$ cost}: at $T=20$ it degrades (errors $0.24$--$0.45$
+  at $\sigma_{\max}=0.5$) and at $T=40$ it explodes (error up to
+  $7\times10^{15}$ at $p^{*}=38$) because $e^{p^{*}}$ amplifies the
+  $p$-grid floor.  At long $T$ the symmetrizer is not merely cheaper---it
+  is the only working recovery.
+\item \emph{Conditioning}:
+  $\kappa_2(S)=4.0\times10^{2}$--$8.6\times10^{2}$ at $\epsilon=10^{-2}$
+  (the recommended setting), flat in $\sigma_{\max}$, scaling as
+  ${\sim}\epsilon^{-0.6\,\text{to}\,-1.0}$---and \emph{saturating} in
+  $n$: extending the measurement to $n=4096$ gives
+  $\kappa_2(S)=564.5$ at $\epsilon=10^{-2}$ versus $566.9$ at $n=2048$
+  (local slope $-0.006$; over the full range $n=512$--$4096$ the fitted
+  power-law exponent drops from $0.25$ to $0.16$ with degrading fit
+  quality, i.e.\ a power law is the wrong model because $\kappa$ is
+  flattening).  $\lambda^{+}$ itself saturates ($0.683\to0.694$ over
+  $8\times$ in $n$) and $\lambda_{\min}(W)$ stays at $0.66$--$0.68$, so
+  the $\kappa$ growth is driven entirely by
+  $\lambda_{\max}(W)\sim1/(2\epsilon)$: the conditioning is
+  $\epsilon$-controlled, not grid-controlled, and the symmetrizer cost
+  does not blow up under mesh refinement.  The eigenvector symmetrizer
+  $W=(VV^{\dagger})^{-1}$ is four to six orders of magnitude worse
+  conditioned ($\kappa_2\sim3\times10^{8}$) and fails outright on
+  near-defective configurations---the Lyapunov route is the right
+  construction.
+\item \emph{Tradeoff}:
+  $T^{*}=\ln\kappa^{2}/(2\lambda^{+})=6.7$--$16.0$ across all
+  configurations; at $T=20$ the symmetrizer wins by 4--9 orders of
+  magnitude in post-selection cost, at $T=40$ by 16--26 orders.  $T^{*}$
+  grows only logarithmically with $\kappa$, hence very weakly with grid
+  size.
+\end{itemize}
+
+\emph{Structure and compressibility of $S$.}  We measured the structure
+of $S$ directly and tested 25 approximate symmetrizers (distance-banded,
+magnitude-thresholded, block-pattern, identity-plus-low-rank, hybrid,
+and inverse-side-banded families) for dissipativity and end-to-end
+recovery on the $n=512$ and $n=1024$ systems.  Three findings.
+(i)~Identity-plus-low-rank is \emph{ruled out}: the correction
+$E=S-\alpha I$ is numerically full rank (995 of 1024 singular values
+above $10^{-2}$ of the top), and $\lamax(\tilde H_1)$ stays at the
+\emph{untransformed} $\lambda^{+}=0.67$ for ranks $8$--$64$---no
+few-term LCU implementation of $S$ exists.  (ii)~Strict sparsification
+preserving $\lamax(\tilde H_1)\le\epsilon$ requires essentially the
+full active support ($\approx48$--$51\%$ of entries; on the remaining
+``dead'' indices---interior memory and padding, $30$--$50\%$ of the
+space---$S$ is exactly a multiple of the identity, which is free
+structure).  (iii)~\emph{Moderate compression works} once the residual
+$\lambda_b$ of an approximate $S_b$ is absorbed as an additional shift
+(undone by $e^{\lambda_b T}\le e^{2.6}\approx14$ at the worst measured
+$\lambda_b=0.066$, $T=40$): magnitude thresholding at $35\%$ density
+recovers to $8.7\times10^{-6}$ ($T=10$) and $5.4\times10^{-5}$
+($T=40$); a rank-$32$-plus-band-$8$ hybrid at $26\%$ reaches
+$1.3\times10^{-5}$ and $6.6\times10^{-4}$ (all $n=1024$; the
+conditioning of every usable $S_b$ stays ${\sim}5\times10^{2}$, equal
+to the exact $S$).  The energy of $E$ is $99.6\%$ concentrated on
+layer-strip index pairs.  The implementation route is therefore
+block-encoding of a ${\sim}35\%$-dense operator (times the free
+dead-index identity factor), not a local circuit or a short LCU; at
+current theory the symmetrizer is best used as classical pre/\allowbreak
+post-processing, and a structured-ansatz Lyapunov construction (solving
+for $W$ within a polynomially parametrised operator family) is the open
+problem these measurements sharpen.
+
+\emph{Honest limitations.}  The construction requires a dense $O(n^{3})$
+classical precomputation of $W$, $S$, $S^{-1}$; the fate of the sparse
+quantised-tensor-train (QTT) term structure under the dense similarity
+(Trotter circuits for $\At$) is not assessed; the $\kappa$ scaling
+beyond $n=4096$ is extrapolation (though saturating); the compression
+study is at $n\le1024$.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/paper_P2_symmetrizer.png}
+  \caption{The Lyapunov symmetrizer.  (a)~Relative recovery error versus
+  evolution time $T$ for the 2D CPML system ($8\times8$ grid,
+  $\sigma_{\max}=0.5$): untransformed recovery at the default small
+  $p^{*}$ (squares) is $O(1)$ garbage; untransformed recovery above the
+  threshold $p^{*}\ge\lambda^{+}T$ (diamonds) degrades with $T$ as
+  $e^{p^{*}}$ amplifies the $p$-grid floor and leaves the admissible
+  $p$-domain entirely by $T=40$; the Lyapunov-symmetrized recovery at the
+  same small $p^{*}$ (circles, $\epsilon=10^{-3}$, shifted transform)
+  stays at the $10^{-6}$ level, essentially flat in $T$.
+  (b)~Post-selection cost on the $16\times16$ grid: the direct
+  $e^{2\lambda^{+}T}$ penalty (solid) against the $T$-independent
+  symmetrizer penalty $\kappa_2^{2}(S)$ at $\epsilon=10^{-2}$ (dashed)
+  and $10^{-3}$ (dotted); the crossovers are the $T^{*}$ values of
+  \protect\ref{ch3:tab:kappa}.}
+  \label{ch3:fig:symmetrizer}
+\end{figure}
+
+% ======================================================================
+\subsection{Explicit circuits}
+\label{ch3:sec:circuits}
+
+\subsubsection{Projector-extended Bell-basis term evolution}
+\label{ch3:sec:projector}
+
+The circuit of Sato \emph{et al.}~\cite{sato2024hamiltonian}
+exponentiates ladder-string terms (alphabet $\{I,\sigma_{01},
+\sigma_{10}\}$) via a Bell-basis change followed by one multi-controlled
+$R_z$; Hu, Jin, Liu, and Zhang~\cite{hu2024quantum} extended the
+framework to non-unitary PDE dynamics via Schr\"odingerisation, and Jin,
+Liu, and Yu~\cite{jin2024heat} built gate-level circuits for the heat
+equation with physical boundaries.  Relative to these we add the
+\emph{projector} extension: strings containing
+$z=\lvert0\rangle\langle0\rvert$ and $o=\lvert1\rangle\langle1\rvert$
+(block projectors of separated multi-field systems) enter as plain
+$0$-/$1$-controls; the Bell rotation outside the projected subspace is
+undone exactly, so the circuit implements
+$e^{-i\,\delta t\,(cP+\mathrm{h.c.})}$ for projector-valued $P$.
+\ref{ch3:fig:circuits}(a) shows the compiled circuit for a
+representative projector-containing term of the separated 2D wave
+Hamiltonian, and \ref{ch3:fig:circuits}(b) the full Schr\"odingerised
+pipeline it slots into.
+
+\begin{figure}[tb]
+  \centering
+  \makebox[0pt][r]{(a)\hspace{0.96\linewidth}}\\[-0.5ex]
+  \resizebox{\linewidth}{!}{%
+  \begin{quantikz}[row sep={0.62cm,between origins}, column sep=0.22cm]
+    \lstick{$q_0\;(\sigma_{10})$} & \qw & \targ{} & \qw & \qw
+      & \ctrl{1} & \qw & \qw & \targ{} & \qw & \qw \\
+    \lstick{$q_1\;(\sigma_{01})$} & \targ{} & \qw & \qw & \qw
+      & \octrl{3} & \qw & \qw & \qw & \targ{} & \qw \\
+    \lstick{$q_2\;(I)$} & \qw & \qw & \qw & \qw
+      & \qw & \qw & \qw & \qw & \qw & \qw \\
+    \lstick{$q_3\;(I)$} & \qw & \qw & \qw & \qw
+      & \qw & \qw & \qw & \qw & \qw & \qw \\
+    \lstick{$q_4\;(\sigma_{00})$} & \qw & \qw & \qw & \qw
+      & \octrl{1} & \qw & \qw & \qw & \qw & \qw \\
+    \lstick{$q_5\;(\sigma_{01},\,\mathrm{piv.})$}
+      & \ctrl{-4} & \ctrl{-5} & \gate{P(\lambda)} & \gate{H}
+      & \gate{R_z(2\gamma\,\delta t)} & \gate{H} & \gate{P(-\lambda)}
+      & \ctrl{-5} & \ctrl{-4} & \qw
+  \end{quantikz}}\\[1.2ex]
+  \makebox[0pt][r]{(b)\hspace{0.96\linewidth}}\\[-0.5ex]
+  \resizebox{\linewidth}{!}{%
+  \begin{quantikz}[row sep={0.95cm,between origins}, column sep=0.18cm]
+    \lstick{sys} & \qwbundle{n_s} & \gate{\lvert\psi_0\rangle} & \qw
+      & \gate[2]{e^{+i\frac{\Delta t}{2}\eta\Sigma}}
+      & \gate{e^{-i\Delta t H}}
+      & \gate[2]{e^{+i\Delta t\,\eta\Sigma}}
+      & \ \ldots\
+      & \gate{e^{-i\Delta t H}}
+      & \gate[2]{e^{+i\frac{\Delta t}{2}\eta\Sigma}}
+      & \qw & \qw \\
+    \lstick{$p$} & \qwbundle{n_p} & \gate{\lvert g\rangle}
+      & \gate{\mathrm{QFT}^{\dagger}} & {} & \qw & {}
+      & \ \ldots\
+      & \qw & {} & \gate{\mathrm{QFT}} & \meter{p^{*}}
+  \end{quantikz}}
+  \caption{Explicit circuits.  (a)~Bell-basis evolution
+  $e^{-i\,\delta t\,(cP+\mathrm{h.c.})}$ of the projector-containing
+  term $P=\sigma_{01}\otimes\sigma_{00}\otimes I\otimes I\otimes
+  \sigma_{01}\otimes\sigma_{10}$ of the separated 2D wave Hamiltonian
+  (string \texttt{mzIImp}, qubit $q_k$ carrying string character $5-k$;
+  $\lambda=\arg c$, $\gamma=|c|$; $\lambda=0$ for the real wave-equation
+  coefficients): \textsc{cnot}s rotate the ladder qubits to the Bell
+  basis, and the single multi-controlled $R_z$ carries the block
+  projector $\sigma_{00}$ ($q_4$) as an \emph{open-circle}
+  $0$-control---the entire compilation rule of
+  Section~\protect\ref{ch3:sec:projector}.  The gate sequence is unitarily identical to
+  the library-compiled circuit (verified to machine precision).
+  (b)~The Schr\"odingerised pipeline (Section~\protect\ref{ch3:sec:circuit}) on bundled
+  registers: product-state preparation
+  $\lvert g\rangle\otimes\lvert\psi_0\rangle$, $\mathrm{QFT}^{\dagger}$
+  on the $p$ register, Strang-split steps alternating the Bell wave
+  circuit $e^{-i\Delta t H}$ with the diagonal damping phases
+  $e^{+i\Delta t\,\eta\Sigma}$ (half steps at the ends), closing
+  $\mathrm{QFT}$, and recovery by measuring the $p$ register,
+  post-selecting the slice at $p^{*}$, and rescaling classically by
+  $e^{p^{*}}$.}
+  \label{ch3:fig:circuits}
+\end{figure}
+
+Due diligence (full-text check of both papers): neither
+Ref.~\cite{hu2024quantum} nor Ref.~\cite{jin2024heat} circuitises
+projector-containing strings---both use only the
+$\{I,\sigma_{01},\sigma_{10}\}$ alphabet.  We confirmed this at code
+level in the published companion notebook of
+Ref.~\cite{hu2024quantum}: its term circuit ($W_j$) implements the
+contiguous ladder pattern with rotations controlled uniformly on all
+lower qubits (an all-or-nothing $X$-conjugation flag serving the
+periodic corner terms), with no per-qubit $0$-/$1$-control selection
+(the nilpotent shift needs no
+projector guards in scalar single-field problems, and
+Ref.~\cite{jin2024heat} routes boundary data into source terms precisely
+to avoid non-Toeplitz structure).  Ref.~\cite{sato2025nonconservative}
+comes closest: its symbolic operator algebra over
+$\{I,\sigma_{00},\sigma_{11},\sigma_{01},\sigma_{10}\}$ produces
+projector factors from boundary-truncated shifts and piecewise-constant
+coefficients, and poly-depth Trotterisation is asserted by citation to
+Ref.~\cite{sato2024hamiltonian}; but no gate-level compilation rule for
+the projector factors and no projector-term circuit is given.  A caveat
+we state explicitly: the
+abstract class $\lvert a\rangle\langle b\rvert + \lvert b\rangle\langle
+a\rvert$ over basis states in Lemma~1 of
+Refs.~\cite{sato2024hamiltonian,hu2024quantum} implicitly \emph{contains}
+Hermitian-paired projector strings as an existence statement; our
+contribution is the explicit alphabet extension and compilation rule
+(projector factor $\to$ $0$-/$1$-control) and its application to
+multi-field block-coupled systems, not a new diagonalisation principle.
+The extension is backward compatible.  Unitary-level validation: the
+error is pure per-step Trotter error $0.50\,\delta t^{2}$ with no phase
+offset.  This unlocks the separated 2D wave Hamiltonian
+(\texttt{zm}/\texttt{mz} block couplings) needed for per-direction
+absorbing layers.
+
+\subsubsection{The Schr\"odingerised circuit}
+\label{ch3:sec:circuit}
+
+The full pipeline is
+\begin{equation}
+\begin{split}
+  \mathrm{init}(g\otimes\psi_0)
+  \;\to\; \mathrm{QFT}^{\dagger}_p
+  \;\to\; [\text{Trotter steps}] \\
+  \;\to\; \mathrm{QFT}_p
+  \;\to\; \text{slice at } p^{*}.
+\end{split}
+  \label{ch3:eq:pipeline}
+\end{equation}
+Each step (diagonal $H_1$) factorises into the wave circuit (the Bell
+construction of Section~\ref{ch3:sec:projector} on the system register) and a
+diagonal damping phase with entries $e^{+i\,\delta t\,\eta_k\sigma_j}$.
+Both Trotter levels are symmetrised (Strang outer; palindromic term order
+inner), with measured clean second order: errors
+$4\times10^{-2}\to10^{-2}\to2.7\times10^{-3}$ at $50/100/200$ steps on 17
+qubits.
+
+\emph{Fitted orders} [1D benchmark, error versus the exact
+Schr\"odingerised evolution to isolate the splitting;
+\ref{ch3:fig:convergence}(d)]: slope $-1.02$ (order~1), $-2.01$ (order~2
+with both levels symmetrised); against the full matrix-exponential
+reference the order-2 error saturates at the $p$-discretisation floor, as
+expected.  \emph{Warping-profile order} [recovery error versus $n_p$,
+fixed 1D PML case; \ref{ch3:fig:convergence}(c)]: $e^{-|p|}$ slope
+${\sim}{-1}$ in $\Delta p$ ($4.1\times10^{-2}\to6.3\times10^{-4}$ over
+$n_p=6$--$11$); $C^{1}$ cubic ${\sim}{-2}$
+($1.3\times10^{-2}\to2.4\times10^{-6}$), confirming Remark~4.9 of
+Ref.~\cite{jin2024recovery} in this setting.
+
+\subsubsection{End-to-end demonstrations}
+\label{ch3:sec:demos}
+
+\begin{itemize}
+\item 1D CPML, 14 qubits (6 system $+$ 8 $p$), 60 steps, $T=30$:
+  recovered solution within $7\times10^{-4}$ of the exact non-unitary
+  evolution.
+\item 2D sponge, $8\times8$ grid, 17 qubits, $T=10$:
+  $2.7\times10^{-3}$ at 200 steps (\ref{ch3:fig:gate17}).
+\item 2D sponge, $32\times32$ grid, 21 qubits (12 system $+$ 9 $p$), up
+  to 240 steps (983 native operations per step): errors
+  $7.7\times10^{-3}$ / $1.7\times10^{-2}$ / $1.4\times10^{-2}$ at
+  $T=8/16/24$; energy decays from $0.97$ to $1.25\times10^{-3}$
+  (absorption complete); nine minutes of statevector simulation
+  (\ref{ch3:fig:gate21}).
+\end{itemize}
+Qubit accounting: the absorbing overhead is $+1$ (sponge) or $+2$ (CPML)
+block qubits plus $n_p\approx8$--$10$ for the $p$ register; $n_p$ depends
+only logarithmically on $T$, the damping rate, and the target accuracy.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/fig5_2d_gate_level_simulation.png}
+  \caption{Gate-level absorbing 2D wave evolution (sponge layer,
+  $8\times8$ grid, 17 qubits $=$ 6 grid $+$ 2 block $+$ 9 $p$-register).
+  Top row: snapshots of the recovered field from the Trotterised quantum
+  circuit at $t=2.5,5,7.5,10$.  Bottom row: the exact non-unitary
+  reference $e^{At}\psi_0$.  The expanding pulse is absorbed in the
+  boundary layer with no visible reflection; snapshot errors are at the
+  $10^{-3}$ level (Section~\protect\ref{ch3:sec:demos}).}
+  \label{ch3:fig:gate17}
+\end{figure}
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/fig6_2d_gate_level_32x32.png}
+  \caption{Gate-level absorbing 2D wave evolution at scale: $32\times32$
+  grid, 21 qubits (12 system $+$ 9 $p$-register), up to 240 second-order
+  Trotter steps (983 native operations per step).  Top row: recovered
+  field from the quantum circuit at $t=0,8,16,24$ (dashed lines mark the
+  absorbing-layer strips).  Bottom row: exact reference $e^{At}\psi_0$.
+  The outgoing ring is absorbed across the layer; the total energy decays
+  from $0.97$ to $1.25\times10^{-3}$, and the recovered field matches the
+  reference to $7.7\times10^{-3}$--$1.7\times10^{-2}$.}
+  \label{ch3:fig:gate21}
+\end{figure}
+
+% ======================================================================
+\subsection{Complexity}
+\label{ch3:sec:complexity}
+
+Term counts inherit the QTT structure of the difference operators:
+$2n_x+2$ terms in 1D and $4n_x+4$ in 2D ($n_x=n_y$), exactly linear in
+the register size (fitted slopes $4.000/2.000$, intercepts $4/2$).
+Transpiled to the $\{\mathrm{CX},u\}$ basis, one Strang wave step costs
+$217/459/834/1343$ operations for $n_{\mathrm{sys}}=6/8/10/12$; a
+power-law fit gives exponent $2.63$ with $r^{2}=0.99997$
+(\ref{ch3:fig:gatecounts})---convincingly polynomial, and in fact
+asymptotically quadratic: the term count is linear in $n$ and the
+ancilla-free V-chain multi-controlled-$R_z$ is linear in its control
+count, so ops/step $=O(n^{2})$.  The constants are fixed by the
+measurements.  The per-step cost in the
+$\{\textsc{cx}, U\}$ basis is reproduced to $0.03\%$
+($r^{2}=0.9999999$) by the quadratic
+\begin{equation}
+  G_{\mathrm{step}}(n) \;=\; 16.7\,n^{2} - 112.7\,n + 293,
+  \label{ch3:eq:stepcost}
+\end{equation}
+whose structure is transparent: a Strang step exponentiates $2n$
+Hermitian-paired terms ($4n_x+4$ at $n=2n_x+2$), each one Bell basis
+change plus one multi-controlled $R_z$ whose ancilla-free V-chain cost
+is \emph{exactly} $32k-31$ elementary operations for $k\ge8$ controls
+(measured), linear in $k$; with the QTT ladder structure averaging
+$\bar k\approx n/4$ controls per term, the leading coefficient is
+$2n\cdot32\,\bar k/n^{2}\approx16.7$.  The total gate count is steps
+$\times$ ops/step with steps $= T/\delta t$ and $\delta t$ set by the
+second-order bound $\delta t = \sqrt{\varepsilon_{\mathrm{tr}}/(C_2
+T)}$, where $C_2$ is the Strang error constant of the slope-$(-2)$ fits
+of \ref{ch3:fig:convergence}(d):
+\begin{equation}
+  G_{\mathrm{total}}
+  \;=\; \sqrt{\frac{C_2\,T^{3}}{\varepsilon_{\mathrm{tr}}}}\;
+        G_{\mathrm{step}}(n)
+  \;=\; O\!\left(\frac{T^{3/2}}{\sqrt{\varepsilon_{\mathrm{tr}}}}\;
+        n^{2}\right),
+  \label{ch3:eq:totalcost}
+\end{equation}
+plus the damping diagonal per step and two $\mathrm{QFT}(n_p)$; the
+power-law fit across the measured range reads $n^{2.63}$ because the
+subleading terms of Eq.~\eqref{ch3:eq:stepcost} have not yet decayed at
+$n\le12$.
+
+\emph{Caveat (honest).}  The damping factor is a single native
+\texttt{diagonal} instruction on the simulator, but a \emph{generic}
+diagonal on $n$ qubits synthesises to $\Theta(2^{n})$ elementary gates:
+we measure a CX count of exactly $2^{n}-2$ and totals within 15\% of the
+$2^{n+1}-3$ synthesis bound.  For hardware the structure must be
+exploited: the diagonal is $D_\eta\otimes\Sigma$ with $\eta$ linear in
+the $p$ index and $\sigma$ a degree-$m$ polynomial profile on the layer
+strips, so phase-polynomial constructions give $\mathrm{poly}(n)$
+circuits, and the logic-minimisation synthesis of piecewise-constant
+diagonal operators of Ref.~\cite{sato2025nonconservative}
+(Espresso-compressed projector strings with matrix-product-state
+coefficient oracles) provides an existing $\mathrm{poly}(n)$ toolbox
+directly applicable to the strip-wise polynomial $\sigma$ profiles;
+making this explicit is deferred to future work.
+
+\begin{figure}
+  \includegraphics[width=\linewidth]{chapter3/paper_P3_gatecounts.png}
+  \caption{Gate cost per Trotter step after transpilation to the
+  $\{\mathrm{CX},u\}$ basis, versus the number of system qubits $n$: 1D
+  steps (squares) and 2D Strang steps (circles).  The dotted line is the
+  power-law fit $\propto n^{2.63}$ ($r^{2}=0.99997$) to the 2D series;
+  the term count itself is exactly linear in $n$ (Section~\protect\ref{ch3:sec:complexity}).}
+  \label{ch3:fig:gatecounts}
+\end{figure}
+
+% ======================================================================
+\subsection{Discussion and outlook}
+\label{ch3:sec:discussion}
+
+The $\lambda^{+}$ obstruction of Lemma~\ref{ch3:lem:threshold} is generic for
+auxiliary-field absorbers---memory variables, auxiliary-differential-equation
+formulations, split fields---because the injection/source asymmetry is
+structural rather than an artefact of one discretisation.  The Lyapunov
+symmetrizer is the corresponding general remedy, and its
+quantum-implementable variants (block-encoding $S$, structured or banded
+approximate symmetrizers) are open.  Natural next steps include a
+hardware experiment in the style of Ref.~\cite{sato2024hamiltonian};
+quantum-signal-processing or qubitisation in place of Trotter (and the
+query-optimal Schr\"odingerisation formulation of
+Ref.~\cite{jin2025queries}); CPML for Maxwell's equations
+\cite{jin2023maxwell,ma2024maxwellcircuits}; and smoother warping
+profiles (error-function or numerically optimal) beyond the $C^{1}$ cubic.
+
+\medskip
+\noindent\emph{Code and data availability.}  The implementation
+(\texttt{lib/absorbing.py}, \texttt{lib/schrodingerisation.py}), all
+experiment scripts and JSON result files
+(\texttt{paper/experiments/}), and the executed demonstration notebook
+are available in the accompanying repository at
+\url{https://github.com/x-repos/qawave-cpml}.
+
+% ======================================================================
+
+
+\subsection{Proof of Lemma~\protect\ref{ch3:lem:threshold}}
+\label{ch3:app:proof}
+
+Fix a layer node $j$ with $\sigma_j>0$ and a stencil neighbour $i$ such
+that the difference entry satisfies $|D_{ji}|=1/h$ (wave speed $c=1$;
+the general case restores a factor $c$ in Eq.~\eqref{ch3:eq:lemmarate}).
+Write $\beta=\sigma_j/\kappa_j+\alpha_j\ge0$ for the CFS decay rate,
+$\gamma$ for the injection coefficient, and
+$s=\sigma_j|D_{ji}|/(\kappa_j^{2}\gamma)$ for the memory-source
+magnitude.  Let $G=\diag(g)>0$ be \emph{any} positive diagonal
+similarity, and set
+\begin{equation}
+  u=\frac{g_{v_j}}{g_{\phi_j}}, \qquad
+  t=\frac{g_{\phi_j}}{g_{w_i}}, \qquad
+  \rho=u\,t=\frac{g_{v_j}}{g_{w_i}}.
+  \label{ch3:eq:scalings}
+\end{equation}
+The transformed generator $\At = GAG^{-1}$ has unchanged diagonal, and
+the three relevant coupling families scale as follows.
+\begin{enumerate}
+\item[(i)] \emph{Injection pair} $(v_j,\phi_j)$: entry $u\gamma$, reverse
+  entry $0$, so $\Ht$ contains the principal $2\times2$ submatrix
+  \begin{equation}
+    \begin{bmatrix} 0 & u\gamma/2 \\ \bar u\bar\gamma/2 & -\beta
+    \end{bmatrix}
+    \;\Longrightarrow\;
+    \lamax(\Ht) \ge f(|u|\gamma,\beta),
+  \end{equation}
+  with $f(x,\beta):=\bigl(\sqrt{\beta^{2}+x^{2}}-\beta\bigr)/2$.
+\item[(ii)] \emph{Memory-source pair} $(w_i,\phi_j)$: entry $t\,s$
+  analogously, giving $\lamax(\Ht)\ge f(|t|s,\beta)$.
+\item[(iii)] \emph{Physical wave pair} $(v_j,w_i)$: elementwise,
+  $\At[v,w]=-iD_{ji}\,\rho$ and $\At[w,v]=+iD_{ji}/\rho$ (using that $D$
+  is real and $D^{\dagger}=-D_{\mathrm{b}}$), so
+  \begin{equation}
+  \begin{split}
+    \Ht[v_j,w_i] &= \frac{iD_{ji}}{2}\bigl(\rho^{-1}-\rho\bigr) \\
+    \Longrightarrow\quad
+    \lamax(\Ht) &\ge \frac{|D_{ji}|}{2}\,\bigl|\rho^{-1}-\rho\bigr|.
+  \end{split}
+  \end{equation}
+\end{enumerate}
+All three are lower bounds on $\lamax(\Ht)$ by Cauchy interlacing (the
+eigenvalues of any principal submatrix interlace those of the full
+Hermitian matrix).
+
+\emph{Case analysis.}  If $|\rho|\le1/2$ then
+$|\rho^{-1}-\rho|\ge3/2$, so (iii) gives $\lamax(\Ht)\ge3/(4h)$.
+Otherwise $|\rho|>1/2$ implies
+\begin{equation}
+  |u\gamma|\cdot|t\,s| \;=\; |\rho|\,\gamma s \;>\; \frac{\gamma s}{2}
+  \;=\; \frac{\sigma_j|D_{ji}|}{2\kappa_j^{2}},
+\end{equation}
+hence
+$\max(|u|\gamma,\,|t|s)\ge\sqrt{\sigma_j/(2h\kappa_j^{2})}$ and
+(i)--(ii) give
+$\lamax(\Ht)\ge f\bigl(\sqrt{\sigma_j/(2h\kappa_j^{2})},\,\beta\bigr)$.
+Therefore, for every positive diagonal scaling,
+\begin{equation}
+  \lamax(\Ht) \;\ge\; \min\left\{\frac{3}{4h},\;
+  \frac{\sqrt{\beta^{2}+\sigma_j/(2h\kappa_j^{2})}-\beta}{2}\right\},
+  \label{ch3:eq:appbound}
+\end{equation}
+which is $\Theta\bigl(\sqrt{\sigma_j/h}\bigr)$ as $h\to0$ (the second
+branch is the minimum once $\sigma_j/(2h)\gg\beta^{2}$, i.e.\ for any
+fixed profile and small $h$).  The bound is independent of $\gamma$ and
+of the scaling $G$.  The explicit balanced choice
+$\gamma^{*}=\sqrt{2\sigma_{\max}/h}$ attains the same rate from above:
+measured $\lambda^{+}=0.68$--$0.97$ across our configurations, versus the
+lower bound $0.18$ at the $8\times8$, $\sigma_{\max}=0.5$ parameters---the
+bound is a rate, not a sharp constant. \hfill$\blacksquare$
+
+\medskip
+\emph{Consistency check.}  The collapsed 1D form
+(Section~\ref{ch3:sec:1d}) has no injection pair: the memory is eliminated and
+the damping is diagonal, so the lemma does not apply---and indeed
+$H_1=-\diag(\sigma)\preceq0$ there.

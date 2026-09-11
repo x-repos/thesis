@@ -1,0 +1,377 @@
+% ======================================================================
+% Appendix B: The convolutional PML in the Hamiltonian-simulation
+% variables.  Self-contained fragment, \input from main.tex after the
+% \appendix switch.  All labels are prefixed appB:.
+% ======================================================================
+\appendix{The convolutional PML in the Hamiltonian-simulation variables}
+\label{ch3:appB:cpml}
+
+This appendix expands the one-line statements of
+Sections~\ref{ch3:sec:cpml}, \ref{ch3:sec:1d}, and \ref{ch3:sec:2d}: the causal kernel
+and memory ODE from the CFS stretch
+(Appendix~\ref{ch3:appB:kernel}), the one-dimensional memory generator and
+the frequency-domain collapse (Appendix~\ref{ch3:appB:1d}), the proof that
+the collapse is exact (Appendix~\ref{ch3:appB:collapse}), the
+two-dimensional eight-block generator
+(Appendix~\ref{ch3:appB:2d}), the staggered profile-sampling rule
+(Appendix~\ref{ch3:appB:stagger}), and the profile formulas
+(Appendix~\ref{ch3:appB:profiles}).  Throughout, $D$ is the
+forward-difference matrix and $D^{\dagger}=-D_{\mathrm{b}}$ its negative
+backward counterpart (Section~\ref{ch3:sec:wave}); all operators are exactly
+those constructed in the accompanying code.
+
+\subsection{From the CFS stretch to the memory ODE}
+\label{ch3:appB:kernel}
+
+We fix the Fourier convention
+$\hat f(\omega)=\int dt\,e^{-i\omega t}f(t)$,
+$f(t)=(2\pi)^{-1}\int d\omega\,e^{+i\omega t}\hat f(\omega)$, so that
+$\partial_t\mapsto i\omega$ and the causal exponential has the transform
+$\int_0^{\infty}dt\,e^{-\beta t}e^{-i\omega t}=(\beta+i\omega)^{-1}$ for
+$\beta>0$.  A PML stretches the coordinate into the complex plane,
+$\tilde x=\int_0^x s(x',\omega)\,dx'$, which in the frequency domain
+replaces every spatial derivative by
+$\partial_x\mapsto s(\omega)^{-1}\partial_x$ inside the layer.  For the
+CFS factor of Eq.~\eqref{ch3:eq:cfs}, partial fractions in the variable
+$i\omega$ give
+\begin{equation}
+  \frac{1}{s(\omega)}
+  \;=\; \frac{\alpha+i\omega}{\kappa(\alpha+i\omega)+\sigma}
+  \;=\; \frac{1}{\kappa} \;+\; \hat\zeta(\omega),
+  \label{ch3:appB:eq:invs}
+\end{equation}
+with
+\begin{equation}
+  \hat\zeta(\omega) \;=\; -\frac{\sigma}{\kappa^{2}}\,
+  \frac{1}{\beta+i\omega},
+  \qquad
+  \beta \;:=\; \frac{\sigma}{\kappa}+\alpha
+  \label{ch3:appB:eq:zetahat}
+\end{equation}
+the CFS decay rate: indeed
+$1/s-1/\kappa=(\kappa-s)/(\kappa s)$ with
+$\kappa-s=-\sigma/(\alpha+i\omega)$ and
+$\kappa s=\kappa^{2}(\beta+i\omega)/(\alpha+i\omega)$.  The single pole
+at $i\omega=-\beta$ inverts, by the causal transform above, to the
+exponential kernel of Eq.~\eqref{ch3:eq:kernel},
+$\zeta(t)=-(\sigma/\kappa^{2})\,e^{-\beta t}\theta(t)$, and frequency
+multiplication is time convolution:
+$s^{-1}\partial_x f = \kappa^{-1}\partial_x f + \zeta * \partial_x f$.
+
+The convolution becomes local in time once it is named.  Let
+$\phi:=\zeta*\partial_x f$.  Multiplying Eq.~\eqref{ch3:appB:eq:invs} by
+$(\beta+i\omega)$ gives the polynomial identity
+$(\beta+i\omega)\hat\zeta=-\sigma/\kappa^{2}$, hence
+$i\omega\,\hat\phi=-\beta\,\hat\phi
+-(\sigma/\kappa^{2})\,\widehat{\partial_x f}$, which transforms back to
+the memory ODE of Eq.~\eqref{ch3:eq:memoryode}.  Equivalently, in the time
+domain,
+$\partial_t\phi=\zeta(0^{+})\,\partial_x f+\zeta'*\partial_x f$ with
+$\zeta(0^{+})=-\sigma/\kappa^{2}$ and $\zeta'=-\beta\zeta$.  One
+first-order ODE per stretched derivative thus carries the convolution
+exactly; this is the recursive-convolution CPML of Roden and
+Gedney~\cite{roden2000cpml}.
+
+\subsection{One dimension: memory generator and collapse}
+\label{ch3:appB:1d}
+
+In the variables of Section~\ref{ch3:sec:wave} the undamped 1D system is
+$\dot v=-iDw$, $\dot w=-iD^{\dagger}v$ [Eq.~\eqref{ch3:eq:waveH}].  Each
+equation contains exactly one spatial derivative, so the stretch
+generates one memory field per physical field.  Sampling the profiles
+per field (Appendix~\ref{ch3:appB:stagger}) defines the diagonal matrices
+$\Sigma_v=\diag(\sigma_{v,j})$, $K_v=\diag(\kappa_{v,j})$,
+$B_v=\diag(\sigma_{v,j}/\kappa_{v,j}+\alpha_{v,j})$, and the layer
+projector $\Pi_v=\diag(\mathbf{1}[\sigma_{v,j}>0])$, and likewise for
+$w$.  Applying the stretched-derivative rule to $-iDw$ and carrying the
+convolution by the rescaled memory field
+$\phi_v:=\gamma^{-1}\,\zeta_v*(-iDw)$---where $\gamma>0$ is a free
+constant rescaling under which the physical trajectory is invariant,
+set to the balanced value $\gamma=\sqrt{2\sigma_{\max}/h}$ of
+Appendix~\ref{ch3:app:proof}---gives, by Eq.~\eqref{ch3:eq:memoryode},
+\begin{equation}
+  \dot v = -iK_v^{-1}Dw + \gamma\phi_v,
+  \qquad
+  \dot\phi_v = -B_v\phi_v + \frac{i}{\gamma}\Sigma_vK_v^{-2}Dw,
+  \label{ch3:appB:eq:stretched}
+\end{equation}
+and the analogous pair for $(w,\phi_w)$ with $D\to D^{\dagger}$,
+$v\leftrightarrow w$.  The source of $\phi_v$ carries the factor
+$\Sigma_v$, so $\phi_v$ vanishes identically outside the layer strips
+for memory-free data; masking the injection column by $\Pi_v$ therefore
+changes no such trajectory while removing the spurious $O(\gamma)$
+interior entries that an unmasked column would contribute to the
+Hermitian part $H_1$.  On the four-block state
+$[v;\,w;\,\phi_v;\,\phi_w]$ (two extra block qubits) the generator is
+\begin{equation}
+  A_{\mathrm{mem}} =
+  \begin{bmatrix}
+    0 & -iK_v^{-1}D & \gamma\Pi_v & 0\\[2pt]
+    -iK_w^{-1}D^{\dagger} & 0 & 0 & \gamma\Pi_w\\[2pt]
+    0 & \tfrac{i}{\gamma}\Sigma_vK_v^{-2}D & -B_v & 0\\[2pt]
+    \tfrac{i}{\gamma}\Sigma_wK_w^{-2}D^{\dagger} & 0 & 0 & -B_w
+  \end{bmatrix}.
+  \label{ch3:appB:eq:gen1d}
+\end{equation}
+
+\emph{Collapse for $\kappa=1$, $\alpha=0$.}  In this case the stretch
+degenerates: $s(\omega)=(i\omega+\sigma)/(i\omega)$, so the stretched
+$v$ equation, $i\omega\hat v=s_v(\omega)^{-1}(-iD\hat w)$ per Fourier
+mode, multiplies out to
+\begin{equation}
+  (i\omega+\sigma_v)\,\hat v \;=\; -iD\hat w,
+  \label{ch3:appB:eq:freqcollapse}
+\end{equation}
+because the symbol $s(\omega)\,i\omega=i\omega+\sigma$ is a
+\emph{first-degree polynomial} in $i\omega$.  Transforming back,
+$\dot v=-iDw-\sigma_v v$, and likewise
+$\dot w=-iD^{\dagger}v-\sigma_w w$: the convolution collapses to the
+local damping of Eq.~\eqref{ch3:eq:1dcollapse},
+$A=-iH-\diag(\sigma_v,\sigma_w)$, with no memory fields at all.
+
+\subsection{Proof of the exact collapse}
+\label{ch3:appB:collapse}
+
+The frequency-domain argument above is formal (it commutes the stretch
+with the time-domain initial-value problem); the following statement
+makes the equivalence exact at the semi-discrete level.
+
+\begin{lemma}[exact collapse]
+\label{ch3:appB:lem:collapse}
+Let $\kappa\equiv1$ and $\alpha\equiv0$ in the generator of
+Eq.~\eqref{ch3:appB:eq:gen1d}, so that $B_v=\Sigma_v$ and
+$B_w=\Sigma_w$, and define the defects
+\begin{equation}
+  e_v := \phi_v + \gamma^{-1}\Sigma_v v,
+  \quad
+  e_w := \phi_w + \gamma^{-1}\Sigma_w w.
+  \label{ch3:appB:eq:defect}
+\end{equation}
+Then $\dot e_v=\dot e_w=0$ along every solution of
+$\dot\Psi=A_{\mathrm{mem}}\Psi$.  Consequently a memory-form trajectory
+projects onto a trajectory of the collapsed generator
+Eq.~\eqref{ch3:eq:1dcollapse} if and only if $e_v(0)=e_w(0)=0$; for the
+standard embedding $\phi_v(0)=\phi_w(0)=0$ this is the condition
+$\Sigma_v v(0)=0$ and $\Sigma_w w(0)=0$, i.e.\ initial data supported
+outside the layer.
+\end{lemma}
+
+\begin{lemproof}
+Using both rows of Eq.~\eqref{ch3:appB:eq:stretched} with $B_v=\Sigma_v$,
+\begin{equation*}
+\begin{split}
+  \dot e_v
+  &= \Bigl[-\Sigma_v\phi_v+\tfrac{i}{\gamma}\Sigma_vDw\Bigr]
+  + \gamma^{-1}\Sigma_v\bigl[-iDw+\gamma\Pi_v\phi_v\bigr]\\
+  &= (\Sigma_v\Pi_v-\Sigma_v)\,\phi_v \;=\; 0,
+\end{split}
+\end{equation*}
+since $\Sigma_v\Pi_v=\Sigma_v$ (the projector is the support indicator
+of $\Sigma_v$); identically for $e_w$.  Equivalently, the block-row
+operator
+$E=\bigl[\begin{smallmatrix}
+\gamma^{-1}\Sigma_v & 0 & I & 0\\
+0 & \gamma^{-1}\Sigma_w & 0 & I
+\end{smallmatrix}\bigr]$
+annihilates the generator from the left, $EA_{\mathrm{mem}}=0$
+(verified to round-off in our implementation).  On the invariant slice
+$e\equiv0$ the memory ansatz $\phi_v=-\gamma^{-1}\Sigma_v v$ of
+Section~\ref{ch3:sec:1d} holds at all times, the injection term becomes
+$\gamma\Pi_v\phi_v=-\Sigma_v v$, and $(v,w)$ obeys
+Eq.~\eqref{ch3:eq:1dcollapse}; conversely, every collapsed trajectory lifts
+to the memory form through the ansatz.
+\end{lemproof}
+
+When $e(0)\neq0$, the conserved defect acts on the physical equations
+as the static in-layer forcing $\gamma\Pi_ve_v(0)$,
+$\gamma\Pi_we_w(0)$, so the discrepancy between the two forms scales
+with the layer content $\lVert\Sigma_vv(0)\rVert$,
+$\lVert\Sigma_ww(0)\rVert$ of the initial data---and vanishes exactly
+for data supported outside the layer.  Numerically, propagating the
+same interior pulse with Eq.~\eqref{ch3:appB:eq:gen1d} and with
+Eq.~\eqref{ch3:eq:1dcollapse} agrees to $6\times10^{-13}$
+(Section~\ref{ch3:sec:1d}).
+
+\emph{Remark (the roles of $\alpha$ and $\kappa$).}  The cancellation
+uses only $\alpha\equiv0$: for a graded $\kappa$ the modified defect
+$e_v=\phi_v+\gamma^{-1}\Sigma_vK_v^{-1}v$ is conserved by the same
+computation, and the convolution collapses to the local form
+$\dot v=-iK_v^{-1}Dw-K_v^{-1}\Sigma_vv$ (both statements again verified
+to round-off).  For $\alpha>0$, instead, $\dot e_v=-\diag(\alpha_v)\phi_v
+\neq0$---equivalently, $s(\omega)\,i\omega$ is no longer polynomial in
+$i\omega$---and the memory fields are irreducible: the four-block form
+is then the genuine content of the CFS layer.
+
+\subsection{Two dimensions: the eight-block generator}
+\label{ch3:appB:2d}
+
+In 2D the damping acts per direction: the $x$ stretch replaces every
+$\partial_x$ and the $y$ stretch every $\partial_y$.  On the
+separated-block state of Section~\ref{ch3:sec:wave} the undamped equations are
+$\dot v=-iD_xw_x-iD_yw_y$, $\dot w_x=-iD_x^{\dagger}v$,
+$\dot w_y=-iD_y^{\dagger}v$, with $D_x=D\otimes I_{N_y}$ and
+$D_y=I_{N_x}\otimes D$ on the flattened $N_xN_y$ grid register ($x$
+register more significant).  The $v$ equation contains one derivative
+of each direction and acquires two memory fields $\phi_{vx}$,
+$\phi_{vy}$; each $w$ equation contains a single derivative and
+acquires one, $\phi_x$ for $w_x$ and $\phi_y$ for $w_y$.  The four
+memory fields plus the three physical fields are padded by one zero
+block to the eight blocks of Eq.~\eqref{ch3:eq:blocks} (three block
+qubits).
+
+Because $\sigma_x$ depends on $x$ only, its diagonal samples factorise
+on the grid register:
+$\Sigma_v^{x}=S_x\otimes I_{N_y}$ and
+$\Sigma_w^{x}=S_x^{\mathrm{st}}\otimes I_{N_y}$, where
+$S_x=\diag\,\sigma(x_j)$ holds the nodal samples and
+$S_x^{\mathrm{st}}=\diag\,\sigma(x_{j-1/2})$ the half-cell samples
+(Appendix~\ref{ch3:appB:stagger}); symmetrically
+$\Sigma_v^{y}=I_{N_x}\otimes S_y$ and
+$\Sigma_w^{y}=I_{N_x}\otimes S_y^{\mathrm{st}}$.  With $\kappa\equiv1$
+(our 2D configurations), the decay rates are
+$B_v^{x}=\Sigma_v^{x}+\diag\alpha_x(x_j)$ etc., and the masks
+$\Pi_v^{x}=\diag(\mathbf{1}[\Sigma_v^{x}>0])$, \dots\ are the
+layer-strip projectors.  Repeating the derivation of
+Appendix~\ref{ch3:appB:1d} once per (field, stretched direction) pair gives
+the generator, in the block ordering of Eq.~\eqref{ch3:eq:blocks},
+\begin{widetext}
+\begin{equation}
+  A \;=\;
+  \begin{bmatrix}
+    0 & -iD_x & -iD_y & \gamma\Pi_v^{x} & \gamma\Pi_v^{y} & 0 & 0 & 0\\[3pt]
+    -iD_x^{\dagger} & 0 & 0 & 0 & 0 & \gamma\Pi_w^{x} & 0 & 0\\[3pt]
+    -iD_y^{\dagger} & 0 & 0 & 0 & 0 & 0 & \gamma\Pi_w^{y} & 0\\[3pt]
+    0 & \frac{i}{\gamma}\Sigma_v^{x}D_x & 0 & -B_v^{x} & 0 & 0 & 0 & 0\\[3pt]
+    0 & 0 & \frac{i}{\gamma}\Sigma_v^{y}D_y & 0 & -B_v^{y} & 0 & 0 & 0\\[3pt]
+    \frac{i}{\gamma}\Sigma_w^{x}D_x^{\dagger} & 0 & 0 & 0 & 0 & -B_w^{x} & 0 & 0\\[3pt]
+    \frac{i}{\gamma}\Sigma_w^{y}D_y^{\dagger} & 0 & 0 & 0 & 0 & 0 & -B_w^{y} & 0\\[3pt]
+    0 & 0 & 0 & 0 & 0 & 0 & 0 & 0
+  \end{bmatrix}
+  \quad\text{on}\quad
+  \bigl[\,v;\; w_x;\; w_y;\; \phi_{vx};\; \phi_{vy};\;
+        \phi_{x};\; \phi_{y};\; 0\,\bigr],
+  \label{ch3:appB:eq:gen2d}
+\end{equation}
+\end{widetext}
+which is, entry for entry, the matrix assembled by the accompanying
+implementation.
+
+\emph{Strip masking.}  The source of each memory field carries its own
+profile factor ($\Sigma_v^{x}$ for $\phi_{vx}$, \dots), so the field
+remains identically zero outside its layer strip for memory-free
+initial data; the corresponding injection column is masked by the strip
+projector, exactly as in 1D, so that $H_1$ carries no spurious
+interior coupling.
+
+\emph{Corners.}  In a corner cell both $\sigma_x>0$ and $\sigma_y>0$
+hold simultaneously: both directions' memory fields are active there,
+the same generator entries of Eq.~\eqref{ch3:appB:eq:gen2d} apply
+unchanged, and no corner-specific terms arise.  This is the structural
+advantage of the unsplit convolutional PML over split-field
+formulations~\cite{roden2000cpml}.  The measured stability,
+$\max\operatorname{Re}\operatorname{eig}(A)=0$ to round-off, is
+reported in Section~\ref{ch3:sec:2d}.
+
+\subsection{The staggered sampling rule}
+\label{ch3:appB:stagger}
+
+For the forward-difference convention, $(Dw)_j=(w_{j+1}-w_j)/h$.  The
+component $v_j$ is updated through $(Dw)_j$ and represents the field at
+the integer node $x_j=jh$; the component $w_j$ is updated through
+$(D^{\dagger}v)_j\propto v_j-v_{j-1}$, a difference centered at the
+half-cell point $x_{j-1/2}$, so the $w$ field lives on the staggered
+grid (the backward convention shifts it to $x_{j+1/2}$).  The sampling
+rule follows: \emph{every profile factor in an evolution equation is
+sampled on the grid of the field that the equation updates},
+\begin{equation}
+  \sigma_{v,j}=\sigma(x_j),
+  \qquad
+  \sigma_{w,j}=\sigma(x_{j\mp1/2}),
+  \label{ch3:appB:eq:staggerrule}
+\end{equation}
+with the upper (lower) sign for the forward (backward) convention,
+and per direction in 2D (\ref{ch3:appB:tab:stagger}): only the $x$
+profile of the $w_x$ family and the $y$ profile of the $w_y$ family are
+staggered; all other dependencies are nodal.
+
+\begin{table}
+\caption{Staggered sampling of the damping profiles in 2D
+(forward-difference convention; the backward convention flips the
+half-cell shifts).  Each profile is sampled on the grid of the field
+its equation updates.}
+\label{ch3:appB:tab:stagger}
+\begin{tabular}{lll}
+\toprule
+Field & Lives at & Profile samples \\
+\midrule
+$v$   & $(x_j,\,y_k)$         & $\sigma(x_j)$,\ $\sigma(y_k)$ \\
+$w_x$ & $(x_{j-1/2},\,y_k)$   & $\sigma(x_{j-1/2})$ \\
+$w_y$ & $(x_j,\,y_{k-1/2})$   & $\sigma(y_{k-1/2})$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\emph{Ablation.}  Sampling all profiles at the integer nodes
+instead---the only change being the half-cell shift of the $w$
+profiles---degrades the measured gold-standard reflection of
+Section~\ref{ch3:sec:2d} by factors of 120--235.  At the reflection floors of
+\ref{ch3:fig:convergence}(a,b) the half-cell stagger is load-bearing,
+not a refinement.
+
+\subsection{Profile formulas}
+\label{ch3:appB:profiles}
+
+Within a layer of $n_{\mathrm{pml}}$ points (width
+$L=n_{\mathrm{pml}}h$) the damping is polynomially graded in the depth
+$d$ measured from the interface,
+\begin{equation}
+  \sigma(d) \;=\; \sigma_{\max}\,(d/L)^{m},
+  \qquad 0\le d\le L,
+  \label{ch3:appB:eq:sigma}
+\end{equation}
+and zero outside; the interface node itself is undamped,
+$\sigma(0)=0$, the outermost node attains $\sigma_{\max}$, and
+staggered samples beyond the wall are clipped to $d=L$.  The amplitude
+follows from the normal-incidence round trip: a wave crossing the
+layer, reflecting off the terminating hard wall, and crossing back
+accumulates the attenuation
+\begin{equation}
+  R \;=\; \exp\Bigl[-\frac{2}{c}\int_0^{L}\sigma(x)\,dx\Bigr]
+  \;=\; \exp\Bigl[-\frac{2\,\sigma_{\max}L}{(m+1)\,c}\Bigr],
+  \label{ch3:appB:eq:roundtrip}
+\end{equation}
+so prescribing a design reflection $R_0$ gives the Collino--Tsogka
+amplitude~\cite{collino2001pml}
+\begin{equation}
+  \sigma_{\max} \;=\; -\frac{(m+1)\,c\,\ln R_0}{2L},
+  \label{ch3:appB:eq:sigmamax}
+\end{equation}
+used with the standard recipe $m=2$,
+$R_0=10^{-3}$~\cite{komatitsch2007unsplit}.  The nominal $R_0$ is
+realised only for layers of ${\gtrsim}8$ points; for thinner layers the
+discrete transition error dominates (a four-point layer reflects at the
+$0.5$--$2\%$ level for grid-scale wavelengths), consistent with the
+saturation of \ref{ch3:fig:convergence}(a).
+
+When the CFS parameters are used they are graded with the same
+geometry,
+\begin{equation}
+  \kappa(d) = 1 + (\kappa_{\max}-1)\,(d/L)^{m},
+  \quad
+  \alpha(d) = \alpha_{\max}\,(1-d/L),
+  \label{ch3:appB:eq:grading}
+\end{equation}
+$\kappa$ rising from $1$ at the interface to $\kappa_{\max}$ at the
+wall with the same polynomial as $\sigma$, and $\alpha$ tapering
+linearly~\cite{komatitsch2007unsplit} from $\alpha_{\max}$ just inside
+the interface to zero at the wall (and vanishing identically outside
+the layer); in the implementation
+$\alpha(d)=\alpha_{\max}[1-(\sigma(d)/\sigma_{\max})^{1/m}]$, which is
+identical.  A nonzero $\alpha$ improves grazing-incidence and
+evanescent absorption but unmatches the layer at low frequencies (the
+stretch is matched only for $\omega\gg\alpha$), so the fixed-horizon
+absorption benchmarks of Section~\ref{ch3:sec:2d} use $\alpha_{\max}=0$.
+Finally, the memory rescaling defaults to
+$\gamma=\sqrt{2\sigma_{\max}/h}$, the choice that balances the
+injection and memory-source contributions to $\lamax(H_1)$
+(Appendix~\ref{ch3:app:proof}).

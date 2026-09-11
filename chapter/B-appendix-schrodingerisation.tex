@@ -1,0 +1,183 @@
+% ======================================================================
+% Appendix C: Schrodingerisation -- discrete formulas and recovery.
+% Fragment; \input into main.tex.  All labels prefixed appC:.
+% ======================================================================
+\appendix{Schr\"odingerisation: discrete formulas and recovery}
+\label{ch3:appC:schro}
+
+This appendix records the complete discrete recipe behind the summary of
+Section~\ref{ch3:sec:schro}, with the exact sign, grid, and ordering conventions
+of our implementation; these are the conventions validated end to end by
+the demonstrations of Section~\ref{ch3:sec:demos}.
+
+\subsection{Hermitian split and warped transform}
+\label{ch3:appC:transform}
+
+The semi-discrete absorbing dynamics $\dot z = Az$ is split as
+\begin{equation}
+  A = H_1 + iH_2, \qquad
+  H_1 = \frac{A + A^{\dagger}}{2}, \qquad
+  H_2 = \frac{A - A^{\dagger}}{2i},
+  \label{ch3:appC:split}
+\end{equation}
+with the dissipative part $H_1$ and the Hamiltonian part $H_2$ both
+Hermitian.  The warped phase-space transform of
+Ref.~\cite{jin2023schrodingerisation} appends one auxiliary variable $p$
+and sets $w(t,p) = e^{-p}z(t)$ for $p\ge0$ (extended to $p<0$ by the
+profile $g$ of Section~\ref{ch3:appC:initial}).  The sign structure follows in
+one line: along the exact solution, $\partial_t w = e^{-p}Az = Aw$ and
+$\partial_p w = -e^{-p}z = -w$, so $H_1 w = -H_1\,\partial_p w$ and
+\begin{equation}
+  \partial_t w \;=\; -H_1\,\partial_p w \;+\; iH_2\,w,
+  \label{ch3:appC:warped}
+\end{equation}
+a transport equation in $p$: the non-unitary part of $A$ has become
+advection of the auxiliary variable.
+
+\subsection{Discrete setup and per-mode evolution}
+\label{ch3:appC:discrete}
+
+The $p$ register holds $N_p = 2^{n_p}$ grid points on the periodic domain
+$[-p_{\max},\,p_{\max})$,
+\begin{equation}
+  p_j = -p_{\max} + j\,\Delta p, \qquad
+  \Delta p = \frac{2p_{\max}}{N_p},
+  \label{ch3:appC:grid}
+\end{equation}
+$j = 0,\dots,N_p-1$, with dual frequencies $\eta_k = \pi k/p_{\max}$ for
+$k = -N_p/2,\dots,N_p/2-1$ in FFT ordering [i.e.\
+$\eta = 2\pi\times\texttt{fftfreq}(N_p,\Delta p)$].  We fix the Fourier
+\emph{synthesis} convention $w(\cdot,p) = \sum_k \hat w_k\,e^{+i\eta_k p}$
+(NumPy: $w = \mathrm{ifft}(\hat w)$ along the $p$ axis,
+$\hat w = \mathrm{fft}(w)$).  Substituting
+$\partial_p \to i\eta_k$ in Eq.~\eqref{ch3:appC:warped} decouples the modes
+into the unitary evolutions of Eq.~\eqref{ch3:eq:permode},
+\begin{equation}
+\begin{split}
+  \frac{d\hat w_k}{dt} &= -i\,(\eta_k H_1 - H_2)\,\hat w_k \\
+  \Longrightarrow\quad
+  \hat w_k(T) &= e^{-iT(\eta_k H_1 - H_2)}\,\hat w_k(0).
+\end{split}
+  \label{ch3:appC:permode}
+\end{equation}
+Stacking the modes, the whole evolution is one Hamiltonian simulation,
+\begin{equation}
+  H_{\mathrm{tot}} \;=\; D_\eta \otimes H_1 \;-\; I_p \otimes H_2,
+  \qquad D_\eta = \diag(\eta_k),
+  \label{ch3:appC:htot}
+\end{equation}
+acting on the tensor order ($p$ register, system register) with the $p$
+register most significant: on the circuit, qubits $0,\dots,n_s-1$ carry
+the system register (little-endian) and qubits $n_s,\dots,n_s+n_p-1$ the
+$p$ register, so the flattened statevector index is $j\,2^{n_s} + s$.
+The opening $\mathrm{QFT}^{\dagger}$ on the $p$ register maps the grid
+amplitudes to $\hat w/\sqrt{N_p}$ (the unitarily normalised FFT),
+$e^{-iTH_{\mathrm{tot}}}$ acts in the $\eta$ basis, and the closing
+$\mathrm{QFT}$ returns to the $p$ grid [\ref{ch3:fig:circuits}(b)].
+
+\subsection{Initial data and the $C^{1}$ profile}
+\label{ch3:appC:initial}
+
+The initial condition $w(0,p_j) = g(p_j)\,z(0)$ is a product state across
+the two registers,
+\begin{equation}
+  \lvert W(0)\rangle
+  = \frac{\lvert g\rangle \otimes \lvert z_0\rangle}{N_0},
+  \qquad
+  N_0 = \lVert g\rVert_2\,\lVert z_0\rVert_2,
+  \label{ch3:appC:product}
+\end{equation}
+with the normalisation $N_0$ recorded classically and undone at recovery.
+The plain profile $g(p) = e^{-\lvert p\rvert}$ is kinked at $p=0$ and
+limits the $p$ discretisation to $O(\Delta p)$; the $C^{1}$ cubic of
+Ref.~\cite[Remark~4.9]{jin2024recovery} replaces it on $(-1,0)$,
+\begin{equation}
+  g(p) =
+  \begin{cases}
+    e^{-p}, & p \ge 0,\\[3pt]
+    \Bigl(\dfrac{3}{e}-3\Bigr)p^{3}
+      + \Bigl(\dfrac{4}{e}-5\Bigr)p^{2} - p + 1, & -1 < p < 0,\\[7pt]
+    e^{p}, & p \le -1,
+  \end{cases}
+  \label{ch3:appC:profile}
+\end{equation}
+restoring $O(\Delta p^{2})$.  The junctions are $C^{1}$ by construction:
+at $p=0^{-}$ the cubic gives $g=1$, $g'=-1$, matching $e^{-p}$; at
+$p=-1^{+}$ it gives $g = g' = e^{-1}$, matching $e^{p}$.  Because
+$g(p) = e^{-p}$ \emph{exactly} for $p\ge0$, the recovery formula below is
+unchanged by the smoothing.  Measured on the 1D CPML benchmark of
+\ref{ch3:fig:convergence}(c) ($2^{5}$ spatial points,
+$n_{\mathrm{pml}}=8$, $\sigma_{\max}=1$, $T=30$, $p_{\max}=18$): the
+recovery error at the default slice falls from $4.1\times10^{-2}$ to
+$6.3\times10^{-4}$ over $n_p = 6$--$11$ for the kinked profile and from
+$1.3\times10^{-2}$ to $2.4\times10^{-6}$ for the cubic, with fitted
+slopes of $\log_2(\mathrm{error})$ versus $n_p$ of $-1.2$ and $-2.6$
+($-1.6$ and $-3.4$ on the pre-floor points $n_p\le9$)---at or above the
+nominal first- and second-order rates, confirming the one-order upgrade
+of Ref.~\cite{jin2024recovery} in this setting.
+
+\subsection{Recovery: threshold, wraparound, plateau}
+\label{ch3:appC:recovery}
+
+The solution is recovered from a single grid slice,
+\begin{equation}
+  z(T) \;=\; e^{p^{*}}\,w(T,p^{*}),
+  \qquad
+  p^{*} \;\ge\; \lamax^{+}(H_1)\,T,
+  \label{ch3:appC:recover}
+\end{equation}
+where $\lamax^{+} = \max\{0,\lamax(H_1)\}$ and the validity threshold on
+$p^{*}$ is Theorem~3.1 of Ref.~\cite{jin2024recovery}.  When
+$H_1\preceq0$ (the collapsed 1D CPML and the sponge) any $p^{*}>0$ is
+admissible, and the implementation defaults to the slice three grid
+points above $p=0$, i.e.\ $p^{*} = 3\Delta p$.  For indefinite $H_1$ (the
+2D CPML memory form of Lemma~\ref{ch3:lem:threshold}) the slice must be
+placed explicitly at $p^{*}\ge\lambda^{+}T$; below the threshold the
+recovered state is $O(1)$ wrong (\ref{ch3:fig:threshold}).
+
+Two further discrete conditions guard the slice.  \emph{Wraparound}: in
+Eq.~\eqref{ch3:appC:warped} an $H_1$-eigencomponent with eigenvalue $\lambda$
+is advected in $p$ with velocity $\lambda$, so the most strongly damped
+components travel a distance $\lambda^{-}T$ \emph{leftwards}, with
+$\lambda^{-} = \lvert\lambda_{\min}(H_1)\rvert$ ($=\sigma_{\max}$ for the
+diagonal absorbers).  The discrete $p$ domain is periodic, so
+$p_{\max}$ must be wide enough that this leftward-transported mass does
+not wrap through $p=-p_{\max}$ back into the recovery region.
+\emph{Plateau}: since $e^{p}w(T,p) = z(T)$ for every admissible $p$, the
+function $p\mapsto e^{p}\lVert w(T,p)\rVert$ must be flat across the
+recovery window.  The implementation tabulates it over the first twelve
+grid points right of $p=0$ and reports the relative peak-to-peak spread;
+a flat plateau certifies that $p_{\max}$, $N_p$, and the profile are
+adequate (our regression tests require a spread below $5\times10^{-2}$),
+while a tilted or stepped plateau flags wraparound or an under-resolved
+profile.
+
+\subsection{Measurement interpretation}
+\label{ch3:appC:measure}
+
+The pipeline is unitary, so the final statevector is exactly
+$W(T)/N_0$, holding $w_s(T,p_j)/N_0$ at index $j\,2^{n_s}+s$.  Measuring
+the $p$ register returns outcome $p_j$ with probability
+$\lVert w(T,p_j)\rVert^{2}/N_0^{2}$ and collapses the system register
+onto $w(T,p_j)/\lVert w(T,p_j)\rVert = z(T)/\lVert z(T)\rVert$: every
+slice in the admissible window yields the \emph{same} normalised state,
+so post-selection may accept the whole plateau window rather than a
+single outcome, summing the corresponding probabilities.  The success
+probability of the slice at $p^{*}$ is, up to $p$-discretisation error,
+\begin{equation}
+  \Pr(p^{*})
+  \;=\; \frac{e^{-2p^{*}}\,\lVert z(T)\rVert^{2}}{N_0^{2}}
+  \;\propto\; e^{-2p^{*}},
+  \label{ch3:appC:psuccess}
+\end{equation}
+which at the threshold slice $p^{*} = \lambda^{+}T$ is the
+$e^{-2\lambda^{+}T}$ post-selection penalty of Section~\ref{ch3:sec:lemma}---the
+cost that the Lyapunov symmetrizer of Section~\ref{ch3:sec:symmetrizer} replaces
+by the $T$-independent factor $\kappa_2^{2}(S)$.  On the statevector
+simulator used for the demonstrations of Section~\ref{ch3:sec:demos}, the slice
+is read off rather than sampled: the final statevector is reshaped to an
+$N_p\times2^{n_s}$ array, row $j$ at $p^{*}$ is extracted, and the result
+is rescaled by $e^{p_j}N_0$.  This is deterministic and exact, so the
+reported errors measure the Trotter and discretisation error only; on
+hardware the same slice would additionally cost the factor
+$e^{-2p^{*}}$ of Eq.~\eqref{ch3:appC:psuccess} in repetitions.

@@ -1,0 +1,416 @@
+% ---------------------------------------------------------------------
+% Appendix E: The Lyapunov symmetrizer --- construction, exact
+% properties, and compressibility data.
+%
+% Self-contained fragment, \input from main.tex.  All labels are
+% prefixed appE:.  Numbers are taken verbatim from
+%   paper/experiments/symmetrizer_results_part1.json   (kappa_table,
+%     sanity, alt_symmetrizer),
+%   paper/experiments/kappa_scaling_results.json       (new_rows,
+%     skipped, fits),
+%   paper/experiments/structured_symmetrizer_results.json
+%     (grids.4x3: structure, approx; grids.3x3: structure),
+% cross-checked against paper/draft.md Sec. 3.4.
+% ---------------------------------------------------------------------
+
+% Theorem-like environment for this appendix (guarded: another fragment
+% or the preamble may already define it).
+\makeatletter
+\@ifundefined{proposition}{\newtheorem{proposition}{Proposition}}{}
+\makeatother
+
+\appendix{The Lyapunov symmetrizer: construction, exact properties, and
+compressibility data}
+\label{ch3:appE:symmetrizer}
+
+This appendix collects the classical construction behind
+Section~\ref{ch3:sec:symmetrizer}, the exact identity underlying
+Eq.~\eqref{ch3:eq:identity} with its proof, the complete conditioning data
+of which \ref{ch3:tab:kappa} is an excerpt, the grid-size saturation
+measurements, and the compressibility study of the symmetrizer $S$.
+
+\subsection{Construction and classical cost}
+\label{ch3:appE:construction}
+
+The absorbing generator $A$ is marginally stable---we measure
+$\max\operatorname{Re}\operatorname{eig}(A)=0$ to round-off
+(Section~\ref{ch3:sec:2d})---so the Lyapunov equation for $A$ itself is
+singular.  We therefore shift, $A_\epsilon = A-\epsilon I$, which is
+Hurwitz with margin $\epsilon$, and solve
+\begin{equation}
+  A_\epsilon^{\dagger}W + WA_\epsilon = -I,
+  \qquad
+  W = \int_0^{\infty} e^{tA_\epsilon^{\dagger}}\,e^{tA_\epsilon}\,dt
+  \;\succ\;0,
+  \label{ch3:appE:eq:lyap}
+\end{equation}
+the integral being the unique Hermitian solution.  The symmetrizer is
+the Hermitian square root $S=W^{1/2}$, with conditioning
+$\kappa_2(S)=\sqrt{\lamax(W)/\lambda_{\min}(W)}$.  The shift is undone
+classically by the scalar factor $e^{\epsilon T}$
+[Eq.~\eqref{ch3:eq:lyapunov}].
+
+Numerically, Eq.~\eqref{ch3:appE:eq:lyap} is solved by the
+Bartels--Stewart algorithm (one complex Schur decomposition of
+$A_\epsilon^{\dagger}$ plus a triangular substitution;
+\texttt{scipy.linalg.solve\_continuous\_lyapunov}), and $S$, $S^{-1}$
+follow from one Hermitian eigendecomposition of $W$---three dense
+$O(n^{3})$ kernels in total.  Measured wall times at the largest
+completed size, $n=4096$ ($32\times16$ grid,
+$\sigma_{\max}=0.5$): the Lyapunov solve takes $268\,$s at
+$\epsilon=10^{-2}$ and $244\,$s at $\epsilon=10^{-3}$, the
+eigendecomposition of $W$ takes $31\,$s, the residual verification
+$2.5$--$2.6\,$s, and the sparse Lanczos evaluation of
+$\lambda^{+}=\lamax^{+}(H_1)$ is negligible ($0.05\,$s).  The $n=8192$
+point was gated off by cubic extrapolation of the measured $n=4096$
+time (projected $40.3$ min per $\epsilon$, over the $25$-min budget)
+and by memory (a dense complex $8192^{2}$ matrix occupies $1$ GiB and
+the solve holds six to eight of them, against $5.1$ GiB free).  Across
+all 18 configurations of \ref{ch3:appE:tab:kappa18} the relative
+Lyapunov residual
+$\lVert A_\epsilon^{\dagger}W+WA_\epsilon+I\rVert_F/\lVert W\rVert_F$
+is at most $1.4\times10^{-14}$.
+
+\subsection{An exact identity for the transformed Hermitian part}
+\label{ch3:appE:exact}
+
+The equality sign in Eq.~\eqref{ch3:eq:identity} is not an estimate.  With
+the unit right-hand side $-I$ in Eq.~\eqref{ch3:appE:eq:lyap}, the
+Hermitian part of the transformed generator is an explicit function of
+$W$:
+
+\begin{proposition}
+\label{ch3:appE:prop}
+Let $A\in\mathbb{C}^{n\times n}$ have spectral abscissa at most zero,
+fix $\epsilon>0$, set $A_\epsilon=A-\epsilon I$, let $W\succ0$ solve
+$A_\epsilon^{\dagger}W+WA_\epsilon=-I$, and let $S=W^{1/2}$ be the
+Hermitian positive-definite square root.  Then, exactly,
+\begin{align}
+  \tfrac12\bigl(SA_\epsilon S^{-1}+S^{-1}A_\epsilon^{\dagger}S\bigr)
+    &= -\tfrac12 W^{-1} \;\prec\; 0,
+  \label{ch3:appE:eq:identshift}\\
+  \tfrac12\bigl(SAS^{-1}+S^{-1}A^{\dagger}S\bigr)
+    &= \epsilon I - \tfrac12 W^{-1}.
+  \label{ch3:appE:eq:identorig}
+\end{align}
+In particular the $\epsilon$-shifted transform is strictly dissipative
+with $\lamax(\Ht^{(\epsilon)}) = -1/\bigl(2\lamax(W)\bigr)$, and the
+transform of the original $A$ has
+$\lamax(\Ht) = \epsilon - 1/\bigl(2\lamax(W)\bigr) < \epsilon$.
+\end{proposition}
+
+\begin{lemproof}
+Since $A_\epsilon$ is Hurwitz, the integral in
+Eq.~\eqref{ch3:appE:eq:lyap} converges and is the unique Hermitian
+solution; it is positive definite, so $S=W^{1/2}$ exists, is
+Hermitian, and $S^{2}=W$.  Write
+$\At=SA_\epsilon S^{-1}$ and take any $x\in\mathbb{C}^{n}$ with
+$x=Sy$.  By congruence,
+\begin{equation}
+  x^{\dagger}\bigl(\At+\At^{\dagger}\bigr)x
+  = y^{\dagger}\bigl(WA_\epsilon+A_\epsilon^{\dagger}W\bigr)y
+  = -\lVert y\rVert^{2}
+  = -x^{\dagger}W^{-1}x,
+  \label{ch3:appE:eq:congruence}
+\end{equation}
+using $S\At S = WA_\epsilon$ and $S\At^{\dagger}S =
+A_\epsilon^{\dagger}W$.  Two Hermitian matrices with equal quadratic
+forms are equal, so $\At+\At^{\dagger}=-W^{-1}$, which is
+Eq.~\eqref{ch3:appE:eq:identshift}; its largest eigenvalue is
+$-\tfrac12\lambda_{\min}(W^{-1})=-1/(2\lamax(W))$.  For
+Eq.~\eqref{ch3:appE:eq:identorig}, $SAS^{-1}=SA_\epsilon
+S^{-1}+\epsilon I$ and $\epsilon I$ is Hermitian, so the Hermitian
+part shifts by $\epsilon I$ and the eigenvalues are
+$\epsilon-1/(2\lambda_j(W))$.
+\end{lemproof}
+
+The identity is verified in every measured configuration: in all 18
+rows of \ref{ch3:appE:tab:kappa18} the directly computed
+$\lamax(\Ht)$ (dense eigendecomposition of the Hermitian part of
+$SAS^{-1}$) agrees with the prediction $\epsilon-1/(2\lamax(W))$ to a
+relative deviation of at most $3.8\times10^{-12}$---far beyond the
+four-digit agreement quoted in the main text---and the shifted column
+equals the unshifted one minus $\epsilon$ to the same precision.  A
+direct check of the matrix identity~\eqref{ch3:appE:eq:identshift} on an
+$n=50$ instance gives a Frobenius residual of $8.9\times10^{-14}$.
+Proposition~\ref{ch3:appE:prop} also explains the choice made in
+Section~\ref{ch3:sec:symmetrizer}: the transform of the \emph{original} $A$
+is not dissipative ($\lamax(\Ht)\approx\epsilon>0$), whereas the
+transform of $A_\epsilon$ is, strictly; we therefore evolve the
+shifted system and undo $e^{\epsilon T}$ classically.
+
+\begin{table}
+\caption{Full Lyapunov-symmetrizer data set; \protect\ref{ch3:tab:kappa} of
+the main text is the excerpt obtained by dropping the
+$\lambda_{\min}(W)$ and unshifted-transform columns.  Grids are listed
+in points ($n$ is the full state dimension including the eight
+blocks).  $\lambda^{+}=\lamax^{+}(H_1)$ is the indefiniteness of the
+untransformed generator; $\kappa_2(S)=\sqrt{\operatorname{cond}_2(W)}$;
+$\lamax(\Ht)$ is the largest Hermitian-part eigenvalue of the
+transform $SAS^{-1}$ of the original generator and
+$\lamax(\Ht^{(\epsilon)})$ that of the $\epsilon$-shifted transform
+$SA_\epsilon S^{-1}$; $T^{*}=\ln\kappa^{2}/(2\lambda^{+})$ is the
+crossover time.  Every row satisfies the identities of
+Proposition~\protect\ref{ch3:appE:prop}: $\lamax(\Ht)$ equals
+$\epsilon-1/(2\lamax(W))$ to a relative deviation
+$\le3.8\times10^{-12}$, and
+$\lamax(\Ht^{(\epsilon)})=\lamax(\Ht)-\epsilon$.  Relative Lyapunov
+residuals are $\le1.4\times10^{-14}$.}
+\label{ch3:appE:tab:kappa18}
+\resizebox{\linewidth}{!}{%
+\begin{tabular}{llllllllll}
+\toprule
+Grid & $n$ & $\sigma_{\max}$ & $\epsilon$ & $\lambda^{+}(H_1)$ &
+$\lambda_{\min}(W)$ & $\kappa_2(S)$ & $\lamax(\Ht)$ &
+$\lamax(\Ht^{(\epsilon)})$ & $T^{*}$ \\
+\midrule
+$8\times8$ & 512 & 0.5 & $10^{-2}$ & 0.683 & 0.669 & $402.1$ & $9.9954\times10^{-3}$ & $-4.63\times10^{-6}$ & 8.8 \\
+$8\times8$ & 512 & 0.5 & $10^{-3}$ & 0.683 & 0.681 & $3009$ & $9.9992\times10^{-4}$ & $-8.10\times10^{-8}$ & 11.7 \\
+$8\times8$ & 512 & 0.5 & $10^{-4}$ & 0.683 & 0.683 & $1.105\times10^{4}$ & $9.9994\times10^{-5}$ & $-6.00\times10^{-9}$ & 13.6 \\
+$8\times8$ & 512 & 1.0 & $10^{-2}$ & 0.927 & 0.373 & $509.3$ & $9.9948\times10^{-3}$ & $-5.17\times10^{-6}$ & 6.7 \\
+$8\times8$ & 512 & 1.0 & $10^{-3}$ & 0.927 & 0.376 & $2851$ & $9.9984\times10^{-4}$ & $-1.64\times10^{-7}$ & 8.6 \\
+$8\times8$ & 512 & 1.0 & $10^{-4}$ & 0.927 & 0.377 & $9762$ & $9.9986\times10^{-5}$ & $-1.39\times10^{-8}$ & 9.9 \\
+$16\times8$ & 1024 & 0.5 & $10^{-2}$ & 0.687 & 0.661 & $506.3$ & $9.9970\times10^{-3}$ & $-2.95\times10^{-6}$ & 9.1 \\
+$16\times8$ & 1024 & 0.5 & $10^{-3}$ & 0.687 & 0.673 & $7009$ & $9.9998\times10^{-4}$ & $-1.51\times10^{-8}$ & 12.9 \\
+$16\times8$ & 1024 & 0.5 & $10^{-4}$ & 0.687 & 0.674 & $3.052\times10^{4}$ & $9.9999\times10^{-5}$ & $-7.96\times10^{-10}$ & 15.0 \\
+$16\times8$ & 1024 & 1.0 & $10^{-2}$ & 0.956 & 0.369 & $749.6$ & $9.9976\times10^{-3}$ & $-2.41\times10^{-6}$ & 6.9 \\
+$16\times8$ & 1024 & 1.0 & $10^{-3}$ & 0.956 & 0.372 & $6981$ & $9.9997\times10^{-4}$ & $-2.76\times10^{-8}$ & 9.3 \\
+$16\times8$ & 1024 & 1.0 & $10^{-4}$ & 0.956 & 0.373 & $2.732\times10^{4}$ & $9.9998\times10^{-5}$ & $-1.80\times10^{-9}$ & 10.7 \\
+$16\times16$ & 2048 & 0.5 & $10^{-2}$ & 0.694 & 0.655 & $566.9$ & $9.9976\times10^{-3}$ & $-2.37\times10^{-6}$ & 9.1 \\
+$16\times16$ & 2048 & 0.5 & $10^{-3}$ & 0.694 & 0.667 & $9856$ & $9.9999\times10^{-4}$ & $-7.71\times10^{-9}$ & 13.3 \\
+$16\times16$ & 2048 & 0.5 & $10^{-4}$ & 0.694 & 0.669 & $6.612\times10^{4}$ & $1.0000\times10^{-4}$ & $-1.71\times10^{-10}$ & 16.0 \\
+$16\times16$ & 2048 & 1.0 & $10^{-2}$ & 0.972 & 0.367 & $857.7$ & $9.9981\times10^{-3}$ & $-1.85\times10^{-6}$ & 6.9 \\
+$16\times16$ & 2048 & 1.0 & $10^{-3}$ & 0.972 & 0.370 & $1.249\times10^{4}$ & $9.9999\times10^{-4}$ & $-8.67\times10^{-9}$ & 9.7 \\
+$16\times16$ & 2048 & 1.0 & $10^{-4}$ & 0.972 & 0.370 & $6.347\times10^{4}$ & $1.0000\times10^{-4}$ & $-3.35\times10^{-10}$ & 11.4 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
+
+\subsection{The full conditioning table}
+\label{ch3:appE:fulltable}
+
+\ref{ch3:appE:tab:kappa18} lists all 18 measured configurations
+(three grids, two damping strengths, three shifts).  Three regularities
+are worth recording.  (i)~$\lambda_{\min}(W)$ is essentially
+independent of $\epsilon$ ($0.66$--$0.68$ at $\sigma_{\max}=0.5$,
+$0.37$ at $\sigma_{\max}=1.0$), so the entire $\epsilon$ dependence of
+$\kappa_2(S)$ is carried by $\lamax(W)$, consistent with
+Proposition~\ref{ch3:appE:prop}, in which $\lamax(W)$ is pinned to the
+inverse dissipativity margin of the shifted transform.
+(ii)~Least-squares fits of $\ln\kappa_2(S)$ against $\ln\epsilon$ per
+(grid, $\sigma_{\max}$) configuration give slopes between $-0.64$ and
+$-1.03$ (the range quoted as
+$\epsilon^{-0.6\,\text{to}\,-1.0}$ in Section~\ref{ch3:sec:symmetrizer}),
+steepening with grid size at fixed $\epsilon$ range.  (iii)~The
+crossover times $T^{*}=\ln\kappa^{2}/(2\lambda^{+})$ span
+$6.7$--$16.0$ and grow only logarithmically with $\kappa_2(S)$.  For
+comparison, the eigenvector symmetrizer $W=(VV^{\dagger})^{-1}$
+yields $\kappa_2(S)=2.9\times10^{8}$--$6.9\times10^{8}$ where it
+exists and fails outright ($VV^{\dagger}$ numerically singular) on
+both $16\times8$ configurations; the Lyapunov construction is four to
+six orders of magnitude better conditioned and never fails.
+
+\subsection{Saturation of \texorpdfstring{$\kappa_2(S)$}{kappa2(S)}
+with grid size}
+\label{ch3:appE:saturation}
+
+\ref{ch3:appE:tab:scaling} extends the $\sigma_{\max}=0.5$ series to
+$n=4096$.  At $\epsilon=10^{-2}$ the conditioning is flat:
+$\kappa_2(S)$ \emph{decreases} from $566.9$ to $564.5$ between
+$n=2048$ and $n=4096$ (local log--log slope $-0.006$).  At
+$\epsilon=10^{-3}$ it still rises but visibly flattens.  Power-law
+fits confirm that a power law is the wrong model: at
+$\epsilon=10^{-2}$ the fitted exponent drops from $0.25$
+($r^{2}=0.963$, $n=512$--$2048$) to $0.16$ ($r^{2}=0.823$,
+$n=512$--$4096$), and at $\epsilon=10^{-3}$ from $0.86$
+($r^{2}=0.943$) to $0.62$ ($r^{2}=0.875$)---falling exponents with
+degrading fit quality, i.e.\ $\kappa$ is saturating, not following a
+power law.  The drivers saturate individually: $\lambda^{+}$ grows
+from $0.6829$ to $0.6940$ over the eightfold range in $n$ and is then
+identical to ten digits between $n=2048$ and $n=4096$, and
+$\lambda_{\min}(W)$ stays at $0.655$--$0.681$ throughout.  The
+conditioning is therefore $\epsilon$-controlled, not grid-controlled:
+mesh refinement does not inflate the symmetrizer cost.
+
+\begin{table}
+\caption{$\kappa_2(S)$ and $\lambda_{\min}(W)$ versus grid size at
+$\sigma_{\max}=0.5$ (grids in points; $n$ is the state dimension).
+The $n=8192$ point was gated off by the projected runtime and memory
+(Section~\protect\ref{ch3:appE:construction}).}
+\label{ch3:appE:tab:scaling}
+\begin{tabular}{lllllll}
+\toprule
+ & & & \multicolumn{2}{c}{$\epsilon=10^{-2}$} &
+ \multicolumn{2}{c}{$\epsilon=10^{-3}$} \\
+\cline{4-5}\cline{6-7}
+Grid & $n$ & $\lambda^{+}(H_1)$ & $\kappa_2(S)$ & $\lambda_{\min}(W)$
+ & $\kappa_2(S)$ & $\lambda_{\min}(W)$ \\
+\midrule
+$8\times8$ & 512 & 0.6829 & 402.1 & 0.669 & 3009 & 0.681 \\
+$16\times8$ & 1024 & 0.6875 & 506.3 & 0.661 & 7009 & 0.673 \\
+$16\times16$ & 2048 & 0.6940 & 566.9 & 0.655 & 9856 & 0.667 \\
+$32\times16$ & 4096 & 0.6940 & 564.5 & 0.655 & 11241 & 0.668 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Compressibility of \texorpdfstring{$S$}{S}}
+\label{ch3:appE:compress}
+
+\noindent\textbf{Protocol.}  At $\epsilon=10^{-2}$, $\sigma_{\max}=0.5$, we
+measured the structure of $S$ on the $n=512$ grid and confirmed on the
+$n=1024$ grid, and scored 25 candidate approximate symmetrizers
+$S_b\approx S$ drawn from six families (Manhattan-distance-banded,
+magnitude-thresholded, block-pattern, identity-plus-low-rank,
+low-rank-plus-band hybrid, and banded-$S^{-1}$).  Each candidate is
+scored by its residual indefiniteness
+$\lambda_b = \lamax\bigl(\mathrm{Herm}(S_bA_\epsilon
+S_b^{-1})\bigr)$; for the exact $S$,
+$\lambda_b=-1/(2\lamax(W))<0$ by Proposition~\ref{ch3:appE:prop}.  A
+candidate \emph{passes} if $\lambda_b\le2\times10^{-3}$ (the
+$\epsilon$-mode recovery at the default slice remains valid); a
+candidate with $2\times10^{-3}<\lambda_b\le0.5$ is
+\emph{rescue-eligible}: the classical shift is enlarged from
+$\epsilon$ to $s=\epsilon+\lambda_b$, so the evolved generator
+$S_b(A-sI)S_b^{-1}$ is again dissipative, the undo factor becomes
+$e^{sT}$, and the post-selection penalty relative to the exact $S$ has
+exponent $2\lambda_bT$.  End-to-end recoveries (errors relative to
+$e^{AT}z_0$ at $T\in\{10,40\}$, $n_p=10$) were run for the exact $S$
+and one representative per surviving family.
+\ref{ch3:appE:tab:compress} lists all candidates on the $n=1024$
+confirmation grid.
+
+\noindent\textbf{Structure of $S$.}  Three exact or near-exact structural
+facts.  (i)~\emph{Dead-index identity.}  On the $328$ of $1024$
+indices ($32\%$; $176$ of $512$, i.e.\ $34\%$, at $n=512$) that carry
+no dynamics---interior memory components and the zero padding
+block---$A$ acts as zero, so Eq.~\eqref{ch3:appE:eq:lyap} reduces to
+$2\epsilon w=1$ there and $S$ is \emph{exactly}
+$(2\epsilon)^{-1/2}I$ on this subspace: measured deviation
+$2.0\times10^{-14}$ on the diagonal, off-diagonal entries below
+$7.8\times10^{-15}$, and coupling to the active subspace below
+$1.1\times10^{-12}$.  This factor is free structure for any
+implementation.  (ii)~\emph{The active support is about half the
+matrix}: the exact $S$ has $48.1\%$ ($n=1024$) and $51.1\%$
+($n=512$) nonzero entries (at threshold $10^{-14}$ of the largest).
+(iii)~\emph{The correction is full rank but strip-localised}: with the
+optimal scalar $\alpha=16.7$, the correction $E=S-\alpha I$ carries
+$94.5\%$ of the Frobenius norm of $S$, has $999$ of $1024$ singular
+values above $10^{-2}$ of the largest, and needs rank $995$ to capture
+$99.99\%$ of its energy---numerically full rank---while $99.6\%$ of
+that energy sits on index pairs both lying in the absorbing-layer
+strips ($72$ of the $1024$ indices are strip-free interior).
+
+\begin{table}
+\caption{All 25 candidate approximate symmetrizers on the $n=1024$
+($16\times8$) confirmation grid at $\epsilon=10^{-2}$,
+$\sigma_{\max}=0.5$.  Density is the fraction of nonzero entries of
+the sparse object; for the $\alpha I+{}$rank-$r$ family it is
+$(r{+}1)/n$ (the number of LCU terms relative to $n$), and for the
+banded-$S^{-1}$ family it is the density of the banded $S^{-1}$ (state
+preparation by sparse linear solve).
+$\lambda_b=\lamax\bigl(\mathrm{Herm}(S_bA_\epsilon S_b^{-1})\bigr)$ is
+the residual indefiniteness.  Status: ``pass'' $=$
+$\lambda_b\le2\times10^{-3}$, valid in $\epsilon$ mode at the default
+slice; ``rescue'' $=$ run end to end with the enlarged shift
+$\epsilon+\lambda_b$; ``elig.''\ $=$ rescue-eligible
+($\lambda_b\le0.5$) but not run end to end; ``fail'' $=$ $S_b$
+indefinite or $\lambda_b>0.5$.  The top-$50\%$ threshold and the
+support-of-$A^{2}$ patterns reproduce the exact $S$ to machine
+precision (relative Frobenius deviation $\le6\times10^{-16}$); the
+end-to-end errors of every usable candidate are obtained at
+conditioning $\operatorname{cond}(S_b)=5.06\times10^{2}$--$5.11
+\times10^{2}$, equal to the exact value $5.06\times10^{2}$.}
+\label{ch3:appE:tab:compress}
+\begin{tabular}{llllll}
+\toprule
+Candidate $S_b$ & density (\%) & $\lambda_b$ & status &
+err.\ ($T{=}10$) & err.\ ($T{=}40$) \\
+\midrule
+exact $S$ (active support) & 48.1 & $-3.0\times10^{-6}$ & pass & $7.7\times10^{-6}$ & $4.9\times10^{-5}$ \\
+Manhattan band, $d=1$ & 1.8 & $2.36$ & fail & -- & -- \\
+Manhattan band, $d=2$ & 4.2 & $1.32$ & fail & -- & -- \\
+Manhattan band, $d=4$ & 10.8 & $3.09$ & fail & -- & -- \\
+Manhattan band, $d=8$ & 26.5 & $0.062$ & elig. & -- & -- \\
+Manhattan band, $d=12$ & 38.6 & $0.056$ & rescue & $8.7\times10^{-6}$ & $3.1\times10^{-4}$ \\
+magnitude threshold, top 1\% & 1.0 & $104$ & fail & -- & -- \\
+magnitude threshold, top 5\% & 5.0 & $3.03$ & fail & -- & -- \\
+magnitude threshold, top 10\% & 10.0 & $0.734$ & fail & -- & -- \\
+magnitude threshold, top 25\% & 25.0 & $0.054$ & elig. & -- & -- \\
+magnitude threshold, top 35\% & 35.0 & $4.2\times10^{-3}$ & rescue & $8.7\times10^{-6}$ & $5.4\times10^{-5}$ \\
+magnitude threshold, top 50\% & 48.1 & $-3.0\times10^{-6}$ & pass & -- & -- \\
+block diagonal (per-field) & 7.4 & $6.83$ & fail & -- & -- \\
+support of $A$ & 29.9 & $8.58$ & fail & -- & -- \\
+support of $A^{2}$ & 48.1 & $-3.0\times10^{-6}$ & pass & $7.7\times10^{-6}$ & $4.9\times10^{-5}$ \\
+$\alpha I+{}$rank 8 & 0.9 & $0.677$ & fail & -- & -- \\
+$\alpha I+{}$rank 16 & 1.7 & $0.677$ & fail & -- & -- \\
+$\alpha I+{}$rank 32 & 3.2 & $0.674$ & fail & -- & -- \\
+$\alpha I+{}$rank 64 & 6.3 & $0.674$ & fail & -- & -- \\
+$\alpha I+{}$rank 32${}+{}$band 2 & 4.2 & $0.374$ & elig. & -- & -- \\
+$\alpha I+{}$rank 32${}+{}$band 8 & 26.5 & $0.066$ & rescue & $1.3\times10^{-5}$ & $6.6\times10^{-4}$ \\
+$\alpha I+{}$rank 64${}+{}$band 2 & 4.2 & $0.349$ & elig. & -- & -- \\
+$\alpha I+{}$rank 64${}+{}$band 8 & 26.5 & $0.033$ & elig. & -- & -- \\
+banded $S^{-1}$, $d=2$ & 4.0 & $5.02$ & fail & -- & -- \\
+banded $S^{-1}$, $d=8$ & 25.3 & $2.23$ & fail & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Findings.}  The full-rank measurement rules out
+identity-plus-low-rank outright: for ranks $8$--$64$ the residual
+$\lambda_b=0.674$--$0.677$ equals the \emph{untransformed}
+$\lambda^{+}=0.687$ to within two percent, i.e.\ a short LCU
+correction has no symmetrizing effect at all.  Narrow bands,
+aggressive thresholds, block patterns, and banded inverses are either
+indefinite or carry $\lambda_b\gtrsim1$.  Moderate compression,
+however, works under the rescue accounting: magnitude thresholding at
+$35\%$ density recovers to $8.7\times10^{-6}$ ($T=10$) and
+$5.4\times10^{-5}$ ($T=40$); the Manhattan band $d=12$ at $38.6\%$
+reaches $8.7\times10^{-6}$ and $3.1\times10^{-4}$; the rank-32 plus
+band-8 hybrid at $26.5\%$ reaches $1.3\times10^{-5}$ and
+$6.6\times10^{-4}$.  The rescue cost is mild at the measured
+residuals: the largest rescued $\lambda_b=0.066$ gives an undo factor
+$e^{\lambda_bT}=e^{2.6}\approx14$ and a post-selection penalty
+$e^{2\lambda_bT}=e^{5.3}\approx2\times10^{2}$ at $T=40$, against the
+$T$-independent baseline $\kappa_2^{2}(S)\approx2.6\times10^{5}$.  The
+rescue frame is also the robust one: the dissipativity margin of the
+exact $S$ is only $|\lambda_b|=3.0\times10^{-6}$, and a perturbation
+of $S$ of relative spectral norm $6.4\times10^{-7}$ suffices to push
+$\lambda_b$ past the $2\times10^{-3}$ gate, so \emph{strict}
+dissipativity of any approximation is fragile, whereas absorbing the
+measured $\lambda_b$ into the classical shift is exact bookkeeping.
+Taken together---half-dense active support, full-rank strip-localised
+correction, free dead-index identity factor---these measurements
+support the implementation verdict of Section~\ref{ch3:sec:symmetrizer}:
+block-encoding of a ${\sim}35\%$-dense operator rather than a local
+circuit or a short LCU, with a structured-ansatz Lyapunov solve as the
+open problem.  The compression study is limited to $n\le1024$.
+
+\subsection{Choosing the shift \texorpdfstring{$\epsilon$}{epsilon}}
+\label{ch3:appE:eps}
+
+The shift enters the cost twice and the accuracy nowhere: the
+recovered state is exact up to the classically applied factor
+$e^{\epsilon T}$, while $\kappa_2(S)$ grows as
+$\epsilon^{-0.64}$--$\epsilon^{-1.03}$
+(Section~\ref{ch3:appE:fulltable}) and the evolved norm of the shifted system
+costs $e^{2\epsilon T}$ in post-selection.  At the recommended
+$\epsilon=10^{-2}$ these are $\kappa_2(S)=4.0\times10^{2}$--$8.6
+\times10^{2}$ across all configurations and
+$e^{\epsilon T}\le e^{0.4}$ ($e^{2\epsilon T}\le e^{0.8}\approx2.2$)
+over the horizons tested ($T\le40$)---the shift is negligible against
+$\kappa_2^{2}$, and decreasing $\epsilon$ by a decade buys only that
+trivial factor while inflating $\kappa_2^{2}$ by one and a half to two
+decades.  The shifted transform is what makes the large-$\epsilon$
+choice safe: with the \emph{unshifted} transform of $A$,
+Proposition~\ref{ch3:appE:prop} gives
+$\lamax(\Ht)=\epsilon-1/(2\lamax(W))\approx\epsilon>0$, so the
+recovery threshold [Eq.~\eqref{ch3:eq:recovery}] would demand
+$p^{*}\gtrsim\epsilon T$---at the default slice $p^{*}=0.117$
+($n_p=10$, $p_{\max}=20$) and $T=40$ this would force
+$\epsilon\lesssim2.9\times10^{-3}$, excluding the best-conditioned
+setting, and would couple $\epsilon$ to the horizon and the
+$p$-register extent.  The shifted transform has
+$\Ht^{(\epsilon)}\preceq-1/(2\lamax(W))\,I\prec0$, so any $p^{*}>0$ is
+valid at every $T$ and $\epsilon$ acts purely as a conditioning knob.

@@ -1,7 +1,7 @@
 \chapter{Seismic Traveltime Inversion with Quantum Annealing}\label{chap:seismic-qa}
 
 \begin{center}
-    Modified from a paper published in \emph{Scientific Reports}\footnote{Nguyen, H. A. and Tura, A. Seismic traveltime inversion with quantum annealing. \emph{Scientific Reports}, 15, 17984 (2025). \href{https://doi.org/10.1038/s41598-025-01188-8}{https://doi.org/10.1038/s41598-025-01188-8}}.
+    A paper published in \emph{Scientific Reports}\footnote{Nguyen, H. A. and Tura, A. Seismic traveltime inversion with quantum annealing. \emph{Scientific Reports}, 15, 17984 (2025). \href{https://doi.org/10.1038/s41598-025-01188-8}{https://doi.org/10.1038/s41598-025-01188-8}}.
 
     Hoang Anh Nguyen\footnote{Department of Geophysics, Colorado School of Mines, Golden, Colorado 80401, USA\label{note:ch3-mines}}$^,$\footnote{Primary researcher and author for correspondence}
     and Ali Tura$^{\ref{note:ch3-mines}}$
@@ -26,7 +26,7 @@ We start the quantum annealing inversion process with exact traveltime data with
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.9\linewidth]{chapter3/result10loops.pdf}
+\includegraphics[width=0.9\linewidth]{chapter4/result10loops.pdf}
 \caption{The starting model \(v_{ini}\) and the inverted velocity model \(v_{inv}\) over the first 9 iterations with exact, noise-free traveltime data.}
 \label{fig:ch3-result10loops}
 \end{figure}
@@ -35,7 +35,7 @@ The component-wise relative errors \({e}_{ij}\) between the true \(v_{true, ij}\
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.9\linewidth]{chapter3/result_diff.pdf}
+\includegraphics[width=0.9\linewidth]{chapter4/result_diff.pdf}
 \caption{Velocity models and error: (a) final noiseless inverted model after 10 iterations \(v_{inv, ij}\), (b) true model \(v_{true, ij}\), and (c) the component-wise relative errors \(e_{ij}\) between the final inverted and true velocity model.}
 \label{fig:ch3-result-diff}
 \end{figure}
@@ -44,7 +44,7 @@ For seismic traveltime inversion problem, the quantum annealing method and the c
 
 \begin{figure}[!ht]
 \centering
-\includegraphics[width=0.7\linewidth]{chapter3/combined_velocity_inversions.pdf}
+\includegraphics[width=0.7\linewidth]{chapter4/combined_velocity_inversions.pdf}
 \caption{Traveltime inversion results with different noisy data using linear least squares (a, b, c) and quantum annealing method (d, e, f)}
 \label{fig:ch3-noise-comparison}
 \end{figure}
@@ -105,7 +105,7 @@ We construct a velocity model representing carbon storage applications, as shown
 
 \begin{figure}[!ht]
     \centering
-    \includegraphics[width=0.8\linewidth]{chapter3/ray_coverage.pdf}
+    \includegraphics[width=0.8\linewidth]{chapter4/ray_coverage.pdf}
     \caption{The carbon storage velocity model and ray coverage patterns. Red dots are sources, blue dots are receivers, and white lines represent the ray paths. (a) The synthetic velocity model with a wedge-shaped low-velocity carbon storage formation. (b) Ray coverage from sources and receivers placed in a uniform grid within two boreholes. (c) Ray coverage from sources and receivers placed in a non-uniform pattern, enhancing coverage and constraints for the quantum annealing process.}
     \label{fig:ch3-ray-coverage}
 \end{figure}
